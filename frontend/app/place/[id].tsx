@@ -20,6 +20,7 @@ import { reviewsApi } from "@/services/api";
 import { usePlace } from "@/hooks/usePlaces";
 import { Colors, Spacing, Radius, Typography, categoryColors } from "@/constants/theme";
 import { Review } from "@/types";
+import { CategoryPlaceholder } from "@/components/CategoryPlaceholder";
 
 export default function PlaceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -68,11 +69,7 @@ export default function PlaceDetailScreen() {
           {place.thumbnail_url ? (
             <Image source={{ uri: place.thumbnail_url }} style={styles.hero} />
           ) : (
-            <View style={[styles.heroPlaceholder, { backgroundColor: categoryColor + "20" }]}>
-              <Text style={styles.heroEmoji}>
-                {place.category === "vet" ? "🏥" : place.category === "park" ? "🌳" : "📍"}
-              </Text>
-            </View>
+            <CategoryPlaceholder category={place.category} size="large" />
           )}
         </View>
 

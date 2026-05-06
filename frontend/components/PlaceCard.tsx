@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Place } from "@/types";
 import { Colors, Spacing, Radius, Typography, categoryColors } from "@/constants/theme";
+import { CategoryPlaceholder } from "@/components/CategoryPlaceholder";
 
 interface Props {
   place: Place;
@@ -20,9 +21,7 @@ export function PlaceCard({ place, onPress }: Props) {
         {place.thumbnail_url ? (
           <Image source={{ uri: place.thumbnail_url }} style={styles.image} />
         ) : (
-          <View style={[styles.imagePlaceholder, { backgroundColor: categoryColor + "20" }]}>
-            <CategoryIcon category={place.category} color={categoryColor} size={32} />
-          </View>
+          <CategoryPlaceholder category={place.category} size="small" />
         )}
         <View style={[styles.categoryBadge, { backgroundColor: categoryColor }]}>
           <Text style={styles.categoryText}>{t(`categories.${place.category}`)}</Text>

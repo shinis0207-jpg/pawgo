@@ -3,7 +3,6 @@ import { StyleSheet, View } from "react-native";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
 import { MapViewProps, MapMarker } from "../types";
 
-// 카테고리별 핀 색상
 const CATEGORY_COLORS: Record<MapMarker["category"], string> = {
   cafe: "#8B5CF6",
   hotel: "#6366F1",
@@ -35,24 +34,49 @@ function buildMapHtml(
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body, #map { width: 100%; height: 100vh; overflow: hidden; }
     .custom-pin {
-      width: 32px; height: 32px;
+      width: 30px; height: 30px;
       border-radius: 50% 50% 50% 0;
       transform: rotate(-45deg);
       border: 2px solid white;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.35);
       cursor: pointer;
     }
-    .custom-pin-inner {
-      width: 100%; height: 100%;
-      border-radius: 50% 50% 50% 0;
-      display: flex; align-items: center; justify-content: center;
+    .info-bubble {
+      background: white;
+      border-radius: 8px;
+      padding: 7px 13px;
+      font-size: 12px;
+      font-weight: 700;
+      font-family: -apple-system, sans-serif;
+      white-space: nowrap;
+      max-width: 170px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.22);
+      position: relative;
+      color: #111;
+    }
+    .info-bubble::after {
+      content: '';
+      position: absolute;
+      bottom: -7px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0; height: 0;
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-top: 7px solid white;
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
   <script>
-    var map, currentMarkers = [];
+    var map = null;
+    var mapLoaded = false;
+    var pendingMarkers = null;
+    var currentMarkers = [];
+    var currentTooltip = null;
 
     kakao.maps.load(function() {
       var container = document.getElementById('map');
@@ -61,14 +85,26 @@ function buildMapHtml(
         level: 5
       });
 
-      // 지도 이동 완료 시 중심 좌표 전송
+      mapLoaded = true;
+
+      // 지도 이동 완료 → RN에 중심 좌표 전송
       kakao.maps.event.addListener(map, 'idle', function() {
-        var center = map.getCenter();
-        sendToRN({ type: 'regionChange', lat: center.getLat(), lng: center.getLng() });
+        var c = map.getCenter();
+        sendToRN({ type: 'regionChange', lat: c.getLat(), lng: c.getLng() });
       });
 
-      // 초기 마커 렌더
-      updateMarkers(${markersJson});
+      // 지도 빈 곳 클릭 → 말풍선 닫기
+      kakao.maps.event.addListener(map, 'click', function() {
+        hideTooltip();
+      });
+
+      // RN이 먼저 주입한 마커가 있으면 우선 사용, 없으면 초기 데이터 사용
+      var initial = ${markersJson};
+      var toRender = (pendingMarkers !== null) ? pendingMarkers : initial;
+      pendingMarkers = null;
+      if (toRender.length > 0) _renderMarkers(toRender);
+
+      sendToRN({ type: 'mapReady' });
     });
 
     function sendToRN(data) {
@@ -78,17 +114,24 @@ function buildMapHtml(
     }
 
     function updateMarkers(markersData) {
+      if (!mapLoaded) {
+        // 맵 준비 전이면 큐에 저장 — kakao.maps.load 완료 시 처리
+        pendingMarkers = markersData;
+        return;
+      }
+      _renderMarkers(markersData);
+    }
+
+    function _renderMarkers(markersData) {
       // 기존 마커 제거
       currentMarkers.forEach(function(item) { item.overlay.setMap(null); });
       currentMarkers = [];
+      hideTooltip();
 
       markersData.forEach(function(data) {
         var position = new kakao.maps.LatLng(data.latitude, data.longitude);
-
-        // CustomOverlay로 카테고리별 색상 핀 생성
-        var content = '<div class="custom-pin" style="background:' + data.color + ';">'
-          + '<div class="custom-pin-inner"></div>'
-          + '</div>';
+        var content = '<div class="custom-pin" data-marker-id="' + data.id
+          + '" style="background:' + data.color + ';"></div>';
 
         var overlay = new kakao.maps.CustomOverlay({
           position: position,
@@ -97,40 +140,43 @@ function buildMapHtml(
           zIndex: 3
         });
         overlay.setMap(map);
-
-        // 클릭 이벤트는 DOM 이벤트로 처리
-        (function(markerData, el) {
-          el.addEventListener('click', function() {
-            sendToRN({ type: 'markerPress', marker: markerData });
-          });
-        })(data, overlay.getContent());
-
-        currentMarkers.push({ overlay: overlay, data: data });
+        currentMarkers.push({ overlay: overlay, data: data, position: position });
       });
     }
 
-    // React Native에서 마커 업데이트 요청 수신
-    function handleRNMessage(message) {
-      var msg = JSON.parse(message);
-      if (msg.type === 'updateMarkers') updateMarkers(msg.markers);
-      if (msg.type === 'moveCamera') {
-        map.setCenter(new kakao.maps.LatLng(msg.lat, msg.lng));
-      }
+    function showTooltip(data, position) {
+      hideTooltip();
+      var el = document.createElement('div');
+      el.className = 'info-bubble';
+      el.textContent = data.title;
+
+      currentTooltip = new kakao.maps.CustomOverlay({
+        content: el,
+        position: position,
+        yAnchor: 2.3,
+        zIndex: 10
+      });
+      currentTooltip.setMap(map);
     }
 
-    // CustomOverlay content는 문자열이므로 동적 이벤트 바인딩을 위해
-    // MutationObserver로 DOM 추가 감지
+    function hideTooltip() {
+      if (currentTooltip) { currentTooltip.setMap(null); currentTooltip = null; }
+    }
+
+    // 마커 DOM이 추가되면 클릭 이벤트 바인딩
     var observer = new MutationObserver(function() {
-      document.querySelectorAll('.custom-pin').forEach(function(el) {
-        if (!el.dataset.bound) {
-          el.dataset.bound = 'true';
-          el.addEventListener('click', function(e) {
-            var idx = Array.from(document.querySelectorAll('.custom-pin')).indexOf(el);
-            if (currentMarkers[idx]) {
-              sendToRN({ type: 'markerPress', marker: currentMarkers[idx].data });
-            }
+      document.querySelectorAll('.custom-pin:not([data-bound])').forEach(function(el) {
+        el.setAttribute('data-bound', 'true');
+        el.addEventListener('click', function(e) {
+          e.stopPropagation();
+          var markerId = el.getAttribute('data-marker-id');
+          var item = currentMarkers.find(function(m) {
+            return String(m.data.id) === String(markerId);
           });
-        }
+          if (!item) return;
+          showTooltip(item.data, item.position);
+          sendToRN({ type: 'markerPress', marker: item.data });
+        });
       });
     });
     observer.observe(document.body, { childList: true, subtree: true });
@@ -146,16 +192,28 @@ const KakaoMapProvider = forwardRef<WebView, MapViewProps>(function KakaoMapProv
   const webViewRef = useRef<WebView>(null);
   const apiKey = process.env.EXPO_PUBLIC_KAKAO_MAP_JS_KEY ?? "";
 
-  // 마커가 바뀔 때 WebView에 주입 (전체 리로드 없이 업데이트)
+  const injectMarkers = useCallback(
+    (markerList: MapMarker[]) => {
+      const markersWithColor = markerList.map((m) => ({
+        ...m,
+        color: CATEGORY_COLORS[m.category] ?? "#FF6B35",
+      }));
+      webViewRef.current?.injectJavaScript(
+        `updateMarkers(${JSON.stringify(markersWithColor)}); true;`
+      );
+    },
+    []
+  );
+
+  // 마커 변경 시 WebView에 주입
   useEffect(() => {
-    const markersWithColor = markers.map((m) => ({
-      ...m,
-      color: CATEGORY_COLORS[m.category] ?? "#FF6B35",
-    }));
-    webViewRef.current?.injectJavaScript(
-      `updateMarkers(${JSON.stringify(markersWithColor)}); true;`
-    );
-  }, [markers]);
+    injectMarkers(markers);
+  }, [markers, injectMarkers]);
+
+  // 페이지 로드 완료 후 현재 마커 재주입 (SDK 로드 전 injection 대비)
+  const handleLoadEnd = useCallback(() => {
+    if (markers.length > 0) injectMarkers(markers);
+  }, [markers, injectMarkers]);
 
   const handleMessage = useCallback(
     (event: WebViewMessageEvent) => {
@@ -170,7 +228,6 @@ const KakaoMapProvider = forwardRef<WebView, MapViewProps>(function KakaoMapProv
 
   const html = buildMapHtml(apiKey, initialLatitude, initialLongitude, markers);
 
-  // 내부 ref와 forwardedRef를 동시에 유지
   const setRef = (node: WebView | null) => {
     (webViewRef as React.MutableRefObject<WebView | null>).current = node;
     if (typeof forwardedRef === "function") forwardedRef(node);
@@ -184,6 +241,7 @@ const KakaoMapProvider = forwardRef<WebView, MapViewProps>(function KakaoMapProv
         source={{ html }}
         style={styles.webview}
         onMessage={handleMessage}
+        onLoadEnd={handleLoadEnd}
         javaScriptEnabled
         domStorageEnabled
         originWhitelist={["*"]}
@@ -200,4 +258,3 @@ const styles = StyleSheet.create({
 });
 
 export default KakaoMapProvider;
-

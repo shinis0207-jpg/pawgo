@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -9,6 +9,7 @@ from app.schemas.place import PlaceCreate, PlaceUpdate, PlaceResponse, PlaceList
 from app.services.auth import get_current_user
 from app.services.places import get_places_nearby, place_to_response, get_emergency_vets
 from app.services.cache import cache_get, cache_set, place_cache_key, places_nearby_cache_key
+from app.services.photo_service import cache_place_thumbnail
 
 router = APIRouter(prefix="/places", tags=["places"])
 
@@ -65,6 +66,7 @@ async def list_emergency_vets(
 @router.get("/{place_id}", response_model=PlaceResponse)
 async def get_place(
     place_id: int,
+    background_tasks: BackgroundTasks,
     lang: str = Query(default="ko"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -77,6 +79,15 @@ async def get_place(
     place = result.scalar_one_or_none()
     if not place:
         raise HTTPException(status_code=404, detail="Place not found")
+
+    # thumbnail 없는 카카오 장소는 백그라운드에서 OG 이미지 수집 후 DB 캐시
+    if (
+        not place.thumbnail_url
+        and place.external_id
+        and place.external_id.startswith("kakao_")
+    ):
+        kakao_id = place.external_id.removeprefix("kakao_")
+        background_tasks.add_task(cache_place_thumbnail, place_id, kakao_id)
 
     response = place_to_response(place, lang)
     await cache_set(cache_key, response)
