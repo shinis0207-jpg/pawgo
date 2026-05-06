@@ -8,12 +8,13 @@ class Settings(BaseSettings):
     version: str = "1.0.0"
 
     # Database
+    # Railway injects DATABASE_URL as postgresql:// — we convert to asyncpg scheme
     database_url: str = "postgresql+asyncpg://pawgo:pawgo@localhost:5432/pawgo"
     database_url_sync: str = "postgresql://pawgo:pawgo@localhost:5432/pawgo"
 
-    # Redis
-    redis_url: str = "redis://localhost:6379"
-    cache_ttl: int = 300  # 5 minutes
+    # Redis (optional — cache is skipped when unavailable)
+    redis_url: str = ""
+    cache_ttl: int = 300
 
     # JWT
     secret_key: str = "change-this-secret-key-in-production"
@@ -40,7 +41,23 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
 
     # CORS
-    cors_origins: list[str] = ["http://localhost:8081", "exp://localhost:8081"]
+    cors_origins: list[str] = ["*"]
+
+    def model_post_init(self, __context: object) -> None:
+        # Railway provides postgresql:// — convert to asyncpg scheme
+        if self.database_url.startswith("postgresql://"):
+            object.__setattr__(
+                self,
+                "database_url",
+                self.database_url.replace("postgresql://", "postgresql+asyncpg://", 1),
+            )
+        # Ensure sync URL uses plain postgresql://
+        if self.database_url_sync.startswith("postgresql+asyncpg://"):
+            object.__setattr__(
+                self,
+                "database_url_sync",
+                self.database_url_sync.replace("postgresql+asyncpg://", "postgresql://", 1),
+            )
 
     class Config:
         env_file = ".env"

@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from geoalchemy2.functions import ST_GeogFromText
 
 from app.database import get_db
 from app.models.place import Place, PlaceCategory
@@ -90,9 +89,7 @@ async def create_place(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    location = f"SRID=4326;POINT({data.longitude} {data.latitude})"
-    place_data = data.model_dump(exclude={"latitude", "longitude"})
-    place = Place(**place_data, location=location, owner_user_id=current_user.id)
+    place = Place(**data.model_dump(), owner_user_id=current_user.id)
     db.add(place)
     await db.flush()
     return place_to_response(place)

@@ -206,22 +206,22 @@ def upsert_place(cur, place: KakaoPlace) -> str:
     cur.execute(
         """
         INSERT INTO places (
-            name, category, location, address, city, province,
-            phone, allows_indoor, allows_outdoor, is_verified, external_id,
+            name, category, latitude, longitude, address, city, province,
+            phone, allows_indoor, allows_outdoor, has_parking,
+            rating, review_count, is_verified, is_active, external_id,
             created_at, updated_at
         ) VALUES (
-            %s,
-            %s::placecategory,
-            ST_GeogFromText('SRID=4326;POINT(' || %s || ' ' || %s || ')'),
-            %s, %s, %s, %s, %s, %s, false, %s,
+            %s, %s::placecategory, %s, %s,
+            %s, %s, %s, %s, %s, %s, false,
+            0.0, 0, false, true, %s,
             NOW(), NOW()
         )
         """,
         (
             place.name,
-            place.db_category,
-            place.lng,   # POINT(경도 위도) 순서
+            place.db_category.upper(),
             place.lat,
+            place.lng,
             address,
             city,
             "서울특별시",

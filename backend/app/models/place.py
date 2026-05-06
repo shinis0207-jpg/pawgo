@@ -1,7 +1,6 @@
 from sqlalchemy import String, Float, Boolean, ForeignKey, DateTime, Text, Integer, JSON, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
-from geoalchemy2 import Geography
 from datetime import datetime
 import enum
 from app.database import Base
@@ -21,14 +20,15 @@ class Place(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200), index=True)
     category: Mapped[PlaceCategory] = mapped_column(SAEnum(PlaceCategory), index=True)
-    location: Mapped[object] = mapped_column(Geography(geometry_type="POINT", srid=4326))
+    latitude: Mapped[float] = mapped_column(Float)
+    longitude: Mapped[float] = mapped_column(Float)
     address: Mapped[str] = mapped_column(String(500))
     address_detail: Mapped[str | None] = mapped_column(String(200), nullable=True)
     city: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     province: Mapped[str | None] = mapped_column(String(100), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
     website: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    hours: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # {"mon": "09:00-22:00", ...}
+    hours: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     max_weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
     allows_indoor: Mapped[bool] = mapped_column(Boolean, default=False)
     allows_outdoor: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -43,7 +43,7 @@ class Place(Base):
     owner_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
-    external_id: Mapped[str | None] = mapped_column(String(100), nullable=True)  # 외부 API 연동용
+    external_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
