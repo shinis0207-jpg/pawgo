@@ -45,7 +45,13 @@
     "find_nearby": "주변 장소 찾기",
     "emergency_vet": "긴급 동물병원",
     "no_places": "주변에 장소가 없습니다",
-    "location_required": "위치 권한이 필요합니다"
+    "location_required": "위치 권한이 필요합니다",
+    "search_this_area": "이 지역에서 다시 검색",
+    "my_location": "내 위치"
+  },
+  "search": {
+    "results_count": "{{count}}개 결과",
+    "results_for": "\"{{query}}\" 검색 결과 {{count}}개"
   },
   "categories": {
     "accommodation": "숙박",

@@ -19,8 +19,24 @@ import { useLocation } from "@/hooks/useLocation";
 import { useNearbyPlaces, useEmergencyVets } from "@/hooks/usePlaces";
 import { PlaceCard } from "@/components/PlaceCard";
 import { FilterSheet } from "@/components/FilterSheet";
-import { Place, PlaceCategory, PlaceFilter } from "@/types";
+import { Place, PlaceCategory, PlaceFilter, Coordinates } from "@/types";
 import { Colors, Spacing, Radius, Typography } from "@/constants/theme";
+
+// 지도 중심이 검색 좌표에서 이 거리(km) 이상 벗어나면 "이 지역 재검색" 버튼 표시
+const RESEARCH_THRESHOLD_KM = 0.5;
+
+function haversineKm(a: Coordinates, b: Coordinates): number {
+  const R = 6371;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.latitude - a.latitude);
+  const dLng = toRad(b.longitude - a.longitude);
+  const lat1 = toRad(a.latitude);
+  const lat2 = toRad(b.latitude);
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.sin(dLng / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(x)));
+}
 
 const CATEGORIES: PlaceCategory[] = ["accommodation", "restaurant", "cafe", "park", "vet"];
 
@@ -52,12 +68,27 @@ export default function MapScreen() {
   const [showEmergency, setShowEmergency] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<PlaceCategory | null>(null);
 
+  // 검색 좌표 override — null이면 사용자 위치 사용. "이 지역 재검색" 시 mapCenter로 세팅됨
+  const [searchOverride, setSearchOverride] = useState<Coordinates | null>(null);
+  // 지도가 현재 보고 있는 중심 (사용자 드래그/줌 결과)
+  const [mapCenter, setMapCenter] = useState<Coordinates | null>(null);
+  // "내 위치" 클릭 시 증가 — MapView의 key로 사용해 WebView 재마운트 → 사용자 위치로 카메라 리셋
+  const [recenterSeq, setRecenterSeq] = useState(0);
+
+  const searchCenter = searchOverride ?? location;
   const activeFilters = selectedCategory ? { ...filters, category: selectedCategory } : filters;
-  const { data } = useNearbyPlaces(location, activeFilters);
-  const { data: emergencyVets } = useEmergencyVets(location);
+  const { data } = useNearbyPlaces(searchCenter, activeFilters);
+  const { data: emergencyVets } = useEmergencyVets(searchCenter);
 
   const places = showEmergency ? (emergencyVets ?? []) : (data?.items ?? []);
   const mapMarkers = toMapMarkers(places);
+
+  // 지도 중심이 검색 좌표에서 충분히 떨어졌는지
+  const showResearchBtn =
+    !!mapCenter && !!searchCenter && haversineKm(mapCenter, searchCenter) >= RESEARCH_THRESHOLD_KM;
+  // 검색 좌표가 사용자 위치에서 떨어졌는지 (내 위치 버튼 표시 여부)
+  const showMyLocationBtn =
+    !!location && !!searchOverride && haversineKm(location, searchOverride) >= RESEARCH_THRESHOLD_KM;
 
   // ── MapView 콜백 ────────────────────────────────────────────────────────
   const handleMarkerPress = useCallback(
@@ -67,10 +98,20 @@ export default function MapScreen() {
     [router]
   );
 
-  const handleRegionChange = useCallback((_lat: number, _lng: number) => {
-    // 필요 시 서버에 새 좌표 기반 검색 요청
+  const handleRegionChange = useCallback((lat: number, lng: number) => {
+    setMapCenter({ latitude: lat, longitude: lng });
   }, []);
   // ────────────────────────────────────────────────────────────────────────
+
+  const handleSearchThisArea = () => {
+    if (mapCenter) setSearchOverride(mapCenter);
+  };
+
+  const handleMyLocation = () => {
+    setSearchOverride(null);
+    setMapCenter(null);
+    setRecenterSeq((n) => n + 1);
+  };
 
   const handleCategoryPress = (cat: PlaceCategory) => {
     setSelectedCategory((prev) => (prev === cat ? null : cat));
@@ -82,6 +123,7 @@ export default function MapScreen() {
       {/* 지도 영역 — MapView 인터페이스만 사용하므로 provider 교체 영향 없음 */}
       <View style={styles.mapContainer}>
         <MapView
+          key={`map-${recenterSeq}`}
           initialLatitude={location?.latitude ?? 37.5665}
           initialLongitude={location?.longitude ?? 126.978}
           markers={mapMarkers}
@@ -106,6 +148,25 @@ export default function MapScreen() {
             {t("map.emergency_vet")}
           </Text>
         </TouchableOpacity>
+
+        {/* 내 위치 버튼 — 검색이 사용자 위치에서 벗어났을 때만 */}
+        {showMyLocationBtn && (
+          <TouchableOpacity
+            style={styles.myLocationBtn}
+            onPress={handleMyLocation}
+            accessibilityLabel={t("map.my_location")}
+          >
+            <Ionicons name="locate" size={20} color={Colors.primary} />
+          </TouchableOpacity>
+        )}
+
+        {/* 이 지역 재검색 버튼 — 지도를 드래그해 멀어졌을 때만 */}
+        {showResearchBtn && (
+          <TouchableOpacity style={styles.researchBtn} onPress={handleSearchThisArea}>
+            <Ionicons name="refresh" size={14} color={Colors.surface} />
+            <Text style={styles.researchText}>{t("map.search_this_area")}</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* 카테고리 탭 */}
@@ -210,6 +271,44 @@ const styles = StyleSheet.create({
   },
   emergencyTextActive: {
     color: Colors.surface,
+  },
+  myLocationBtn: {
+    position: "absolute",
+    bottom: Spacing.md,
+    right: Spacing.md,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  researchBtn: {
+    position: "absolute",
+    bottom: Spacing.md,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    backgroundColor: Colors.text,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.full,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  researchText: {
+    ...Typography.caption,
+    color: Colors.surface,
+    fontWeight: "600",
   },
   categoryBar: {
     flexDirection: "row",

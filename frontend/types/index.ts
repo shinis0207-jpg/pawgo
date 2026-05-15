@@ -102,6 +102,7 @@ export interface PlaceFilter {
   allows_indoor?: boolean;
   has_parking?: boolean;
   radius_km?: number;
+  q?: string;
 }
 
 export interface Coordinates {

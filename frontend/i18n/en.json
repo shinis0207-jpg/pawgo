@@ -45,7 +45,13 @@
     "find_nearby": "Find Nearby",
     "emergency_vet": "Emergency Vet",
     "no_places": "No places found nearby",
-    "location_required": "Location permission required"
+    "location_required": "Location permission required",
+    "search_this_area": "Search this area",
+    "my_location": "My location"
+  },
+  "search": {
+    "results_count": "{{count}} results",
+    "results_for": "{{count}} results for \"{{query}}\""
   },
   "categories": {
     "accommodation": "Hotels",

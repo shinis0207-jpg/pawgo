@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { PlaceListResponse } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
 import { placesApi } from "@/services/api";
@@ -21,6 +21,17 @@ import { useLocation } from "@/hooks/useLocation";
 import { PlaceFilter } from "@/types";
 import { Colors, Spacing, Radius, Typography } from "@/constants/theme";
 
+const PAGE_SIZE = 20;
+
+function useDebounced<T>(value: T, delay = 300): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
+}
+
 export default function SearchScreen() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
@@ -28,22 +39,38 @@ export default function SearchScreen() {
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<PlaceFilter>({ radius_km: 10 });
   const [showFilter, setShowFilter] = useState(false);
-  const [page, setPage] = useState(1);
 
-  const { data, isLoading, isFetching } = useQuery<PlaceListResponse>({
-    queryKey: ["search", query, filters, location, page, i18n.language],
-    queryFn: () =>
-      placesApi.getNearby(
-        location?.latitude ?? 37.5665,
-        location?.longitude ?? 126.978,
-        { ...filters, lang: i18n.language, page }
-      ).then((r) => r.data),
+  const debouncedQuery = useDebounced(query.trim(), 300);
+
+  const {
+    data,
+    isLoading,
+    isFetchingNextPage,
+    fetchNextPage,
+    hasNextPage,
+  } = useInfiniteQuery<PlaceListResponse>({
+    queryKey: ["search", debouncedQuery, filters, location, i18n.language],
+    queryFn: ({ pageParam = 1 }) =>
+      placesApi
+        .getNearby(location!.latitude, location!.longitude, {
+          ...filters,
+          q: debouncedQuery || undefined,
+          lang: i18n.language,
+          page: pageParam as number,
+          size: PAGE_SIZE,
+        })
+        .then((r) => r.data),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.page * lastPage.size < lastPage.total ? lastPage.page + 1 : undefined,
     enabled: !!location,
-    placeholderData: keepPreviousData,
   });
 
-  const activeFilterCount = Object.values(filters).filter(
-    (v) => v !== undefined && v !== 10
+  const items = data?.pages.flatMap((p) => p.items) ?? [];
+  const total = data?.pages[0]?.total ?? 0;
+
+  const activeFilterCount = Object.entries(filters).filter(
+    ([k, v]) => v !== undefined && !(k === "radius_km" && v === 10)
   ).length;
 
   return (
@@ -60,6 +87,7 @@ export default function SearchScreen() {
             onChangeText={setQuery}
             returnKeyType="search"
             clearButtonMode="while-editing"
+            autoCorrect={false}
           />
         </View>
         <TouchableOpacity style={styles.filterBtn} onPress={() => setShowFilter(true)}>
@@ -72,6 +100,17 @@ export default function SearchScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Results header */}
+      {!isLoading && total > 0 && (
+        <View style={styles.resultHeader}>
+          <Text style={styles.resultCount}>
+            {debouncedQuery
+              ? t("search.results_for", { query: debouncedQuery, count: total })
+              : t("search.results_count", { count: total })}
+          </Text>
+        </View>
+      )}
+
       {/* Results */}
       {isLoading ? (
         <View style={styles.center}>
@@ -79,7 +118,7 @@ export default function SearchScreen() {
         </View>
       ) : (
         <FlatList
-          data={data?.items ?? []}
+          data={items}
           keyExtractor={(item) => String(item.id)}
           renderItem={({ item }) => (
             <PlaceCard
@@ -93,19 +132,15 @@ export default function SearchScreen() {
               <Text style={styles.emptyText}>{t("map.no_places")}</Text>
             </View>
           }
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+          }}
+          onEndReachedThreshold={0.5}
           ListFooterComponent={
-            data && data.total > (data.page * data.size) ? (
-              <TouchableOpacity
-                style={styles.loadMore}
-                onPress={() => setPage((p) => p + 1)}
-                disabled={isFetching}
-              >
-                {isFetching ? (
-                  <ActivityIndicator size="small" color={Colors.primary} />
-                ) : (
-                  <Text style={styles.loadMoreText}>더 보기</Text>
-                )}
-              </TouchableOpacity>
+            isFetchingNextPage ? (
+              <View style={styles.footerLoader}>
+                <ActivityIndicator size="small" color={Colors.primary} />
+              </View>
             ) : null
           }
           contentContainerStyle={styles.list}
@@ -115,7 +150,7 @@ export default function SearchScreen() {
       <FilterSheet
         visible={showFilter}
         filters={filters}
-        onApply={(f) => { setFilters(f); setPage(1); }}
+        onApply={setFilters}
         onClose={() => setShowFilter(false)}
       />
     </SafeAreaView>
@@ -177,6 +212,14 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 9,
   },
+  resultHeader: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+  },
+  resultCount: {
+    ...Typography.bodySmall,
+    color: Colors.textSecondary,
+  },
   center: {
     flex: 1,
     alignItems: "center",
@@ -191,16 +234,7 @@ const styles = StyleSheet.create({
   list: {
     paddingVertical: Spacing.md,
   },
-  loadMore: {
-    alignItems: "center",
+  footerLoader: {
     paddingVertical: Spacing.lg,
-    marginHorizontal: Spacing.md,
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.md,
-    marginBottom: Spacing.md,
-  },
-  loadMoreText: {
-    ...Typography.button,
-    color: Colors.primary,
   },
 });
