@@ -73,5 +73,8 @@ def place_cache_key(place_id: int, lang: str = "ko") -> str:
     return f"place:{place_id}:{lang}"
 
 
-def places_nearby_cache_key(lat: float, lng: float, radius: float, category: str, lang: str) -> str:
-    return f"places:nearby:{lat:.4f}:{lng:.4f}:{radius}:{category}:{lang}"
+def places_nearby_cache_key(
+    lat: float, lng: float, radius: float, category: str, lang: str, q: str | None = None
+) -> str:
+    q_part = (q or "").strip().lower()
+    return f"places:nearby:{lat:.4f}:{lng:.4f}:{radius}:{category}:{lang}:{q_part}"

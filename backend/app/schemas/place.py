@@ -53,6 +53,7 @@ class PlaceFilter(BaseModel):
     has_parking: bool | None = None
     radius_km: float = 5.0
     lang: str = "ko"
+    q: str | None = None
 
 
 class PlaceResponse(BaseModel):

@@ -24,10 +24,12 @@ async def get_nearby_places(
     has_parking: bool | None = None,
     radius_km: float = Query(default=5.0, le=50.0),
     lang: str = Query(default="ko"),
+    q: str | None = Query(default=None, max_length=100),
     page: int = Query(default=1, ge=1),
     size: int = Query(default=20, le=100),
     db: AsyncSession = Depends(get_db),
 ):
+    q_clean = q.strip() if q else None
     filters = PlaceFilter(
         category=category,
         max_weight_kg=max_weight_kg,
@@ -35,9 +37,10 @@ async def get_nearby_places(
         has_parking=has_parking,
         radius_km=radius_km,
         lang=lang,
+        q=q_clean or None,
     )
 
-    cache_key = places_nearby_cache_key(lat, lng, radius_km, str(category), lang)
+    cache_key = places_nearby_cache_key(lat, lng, radius_km, str(category), lang, q_clean)
     cached = await cache_get(cache_key)
     if cached and page == 1:
         return cached

@@ -52,6 +52,11 @@ async def get_places_nearby(
         query = query.where(Place.allows_indoor == filters.allows_indoor)
     if filters.has_parking is not None:
         query = query.where(Place.has_parking == filters.has_parking)
+    if filters.q:
+        pattern = f"%{filters.q.strip()}%"
+        query = query.where(
+            (Place.name.ilike(pattern)) | (Place.address.ilike(pattern))
+        )
 
     count_query = select(func.count()).select_from(query.subquery())
     total = (await db.execute(count_query)).scalar_one()
