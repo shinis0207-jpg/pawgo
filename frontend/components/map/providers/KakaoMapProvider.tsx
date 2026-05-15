@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useCallback, forwardRef } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, View, Text } from "react-native";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
 import { MapViewProps, MapMarker } from "../types";
 
@@ -192,6 +192,20 @@ const KakaoMapProvider = forwardRef<WebView, MapViewProps>(function KakaoMapProv
   const webViewRef = useRef<WebView>(null);
   const apiKey = process.env.EXPO_PUBLIC_KAKAO_MAP_JS_KEY ?? "";
 
+  // 빌드 시점에 환경변수 인라인이 실패하면 apiKey가 빈 문자열로 들어와 SDK URL이 깨진다.
+  // 그 경우 WebView를 시도조차 하지 말고 진단 정보를 화면에 표시한다.
+  if (!apiKey) {
+    return (
+      <View style={styles.diagnostic}>
+        <Text style={styles.diagnosticTitle}>지도를 로드할 수 없습니다</Text>
+        <Text style={styles.diagnosticBody}>
+          EXPO_PUBLIC_KAKAO_MAP_JS_KEY가 빌드에 주입되지 않았습니다.
+          {"\n"}eas.json의 build.&lt;profile&gt;.env를 확인하세요.
+        </Text>
+      </View>
+    );
+  }
+
   const injectMarkers = useCallback(
     (markerList: MapMarker[]) => {
       const markersWithColor = markerList.map((m) => ({
@@ -238,7 +252,10 @@ const KakaoMapProvider = forwardRef<WebView, MapViewProps>(function KakaoMapProv
     <View style={styles.container}>
       <WebView
         ref={setRef}
-        source={{ html }}
+        // baseUrl을 명시하면 inline HTML의 origin이 null/about:blank이 아니라
+        // 이 도메인으로 인식되어 카카오 JS SDK의 도메인 검증을 통과한다.
+        // (카카오 콘솔 Web 플랫폼에 http://localhost 가 등록되어 있어야 한다.)
+        source={{ html, baseUrl: "https://localhost" }}
         style={styles.webview}
         onMessage={handleMessage}
         onLoadEnd={handleLoadEnd}
@@ -255,6 +272,25 @@ const KakaoMapProvider = forwardRef<WebView, MapViewProps>(function KakaoMapProv
 const styles = StyleSheet.create({
   container: { flex: 1 },
   webview: { flex: 1 },
+  diagnostic: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+    backgroundColor: "#FEF3C7",
+    gap: 8,
+  },
+  diagnosticTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#92400E",
+  },
+  diagnosticBody: {
+    fontSize: 12,
+    color: "#78350F",
+    textAlign: "center",
+    lineHeight: 18,
+  },
 });
 
 export default KakaoMapProvider;

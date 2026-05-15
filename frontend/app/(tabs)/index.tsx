@@ -19,6 +19,7 @@ import { useLocation } from "@/hooks/useLocation";
 import { useNearbyPlaces, useEmergencyVets } from "@/hooks/usePlaces";
 import { PlaceCard } from "@/components/PlaceCard";
 import { FilterSheet } from "@/components/FilterSheet";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Place, PlaceCategory, PlaceFilter, Coordinates } from "@/types";
 import { Colors, Spacing, Radius, Typography } from "@/constants/theme";
 
@@ -122,14 +123,16 @@ export default function MapScreen() {
     <SafeAreaView style={styles.container}>
       {/* 지도 영역 — MapView 인터페이스만 사용하므로 provider 교체 영향 없음 */}
       <View style={styles.mapContainer}>
-        <MapView
-          key={`map-${recenterSeq}`}
-          initialLatitude={location?.latitude ?? 37.5665}
-          initialLongitude={location?.longitude ?? 126.978}
-          markers={mapMarkers}
-          onMarkerPress={handleMarkerPress}
-          onRegionChange={handleRegionChange}
-        />
+        <ErrorBoundary fallbackLabel="지도 렌더 실패">
+          <MapView
+            key={`map-${recenterSeq}`}
+            initialLatitude={location?.latitude ?? 37.5665}
+            initialLongitude={location?.longitude ?? 126.978}
+            markers={mapMarkers}
+            onMarkerPress={handleMarkerPress}
+            onRegionChange={handleRegionChange}
+          />
+        </ErrorBoundary>
 
         {/* 긴급 동물병원 버튼 */}
         <TouchableOpacity
@@ -241,6 +244,7 @@ const styles = StyleSheet.create({
   mapContainer: {
     height: 260,
     position: "relative",
+    backgroundColor: "#E5E7EB",
   },
   emergencyBtn: {
     position: "absolute",
