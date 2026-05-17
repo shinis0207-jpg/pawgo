@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { PlaceCategory, PlaceFilter } from "@/types";
 import { Colors, Spacing, Radius, Typography } from "@/constants/theme";
+import { MVP_VISIBLE_CATEGORIES } from "@/constants/mvp";
 
 interface Props {
   visible: boolean;
@@ -19,7 +20,9 @@ interface Props {
   onClose: () => void;
 }
 
-const CATEGORIES: PlaceCategory[] = ["accommodation", "restaurant", "cafe", "park", "vet"];
+// Phase 1: only MVP_VISIBLE_CATEGORIES appears in the filter UI.
+// The full enum remains in @/types so we never have to widen it back later.
+const CATEGORIES: readonly PlaceCategory[] = MVP_VISIBLE_CATEGORIES;
 const WEIGHT_OPTIONS = [
   { label: "filter.under_5kg", value: 5 },
   { label: "filter.under_10kg", value: 10 },

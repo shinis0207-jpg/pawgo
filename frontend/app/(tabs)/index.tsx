@@ -22,6 +22,7 @@ import { FilterSheet } from "@/components/FilterSheet";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Place, PlaceCategory, PlaceFilter, Coordinates } from "@/types";
 import { Colors, Spacing, Radius, Typography } from "@/constants/theme";
+import { MVP_VISIBLE_CATEGORIES, MVP_SHOW_EMERGENCY_VET } from "@/constants/mvp";
 
 // 지도 중심이 검색 좌표에서 이 거리(km) 이상 벗어나면 "이 지역 재검색" 버튼 표시
 const RESEARCH_THRESHOLD_KM = 0.5;
@@ -39,7 +40,9 @@ function haversineKm(a: Coordinates, b: Coordinates): number {
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(x)));
 }
 
-const CATEGORIES: PlaceCategory[] = ["accommodation", "restaurant", "cafe", "park", "vet"];
+// Phase 1: full enum kept in types/, but only MVP_VISIBLE_CATEGORIES is surfaced
+// in the UI. accommodation / park / vet are still routable but not advertised.
+const CATEGORIES: readonly PlaceCategory[] = MVP_VISIBLE_CATEGORIES;
 
 // Place의 category → MapMarker의 category 변환표
 const CATEGORY_MAP: Record<PlaceCategory, MapMarker["category"]> = {
@@ -134,23 +137,25 @@ export default function MapScreen() {
           />
         </ErrorBoundary>
 
-        {/* 긴급 동물병원 버튼 */}
-        <TouchableOpacity
-          style={[styles.emergencyBtn, showEmergency && styles.emergencyBtnActive]}
-          onPress={() => {
-            setShowEmergency((p) => !p);
-            setSelectedCategory(null);
-          }}
-        >
-          <Ionicons
-            name="medkit"
-            size={16}
-            color={showEmergency ? Colors.surface : Colors.error}
-          />
-          <Text style={[styles.emergencyText, showEmergency && styles.emergencyTextActive]}>
-            {t("map.emergency_vet")}
-          </Text>
-        </TouchableOpacity>
+        {/* 긴급 동물병원 버튼 — Phase 1 MVP에서는 hide. state/로직은 유지. */}
+        {MVP_SHOW_EMERGENCY_VET && (
+          <TouchableOpacity
+            style={[styles.emergencyBtn, showEmergency && styles.emergencyBtnActive]}
+            onPress={() => {
+              setShowEmergency((p) => !p);
+              setSelectedCategory(null);
+            }}
+          >
+            <Ionicons
+              name="medkit"
+              size={16}
+              color={showEmergency ? Colors.surface : Colors.error}
+            />
+            <Text style={[styles.emergencyText, showEmergency && styles.emergencyTextActive]}>
+              {t("map.emergency_vet")}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* 내 위치 버튼 — 검색이 사용자 위치에서 벗어났을 때만 */}
         {showMyLocationBtn && (
