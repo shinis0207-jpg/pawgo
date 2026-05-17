@@ -42,6 +42,29 @@ def _haversine_km(lat: float, lng: float):
     ).cast(Float)
 
 
+async def create_place_with_default_policy(
+    db: AsyncSession,
+    place_data: dict,
+    *,
+    owner_user_id: int | None = None,
+) -> Place:
+    """Create a Place and its default-'unknown' PetPolicy row in one flush.
+
+    This is the only sanctioned code path for inserting a Place in Phase 1+.
+    Every other call site (POST /places router, mfds_import, place_matching,
+    Phase1-9 dummy injection, future admin tooling) MUST go through here so
+    we never end up with a Place lacking a pet_policies row — the default
+    map join filter assumes the 1:1 invariant.
+    """
+    place = Place(**place_data, owner_user_id=owner_user_id)
+    db.add(place)
+    await db.flush()  # populate place.id before linking the policy
+
+    db.add(PetPolicy(place_id=place.id))
+    await db.flush()
+    return place
+
+
 async def get_places_nearby(
     db: AsyncSession,
     lat: float,

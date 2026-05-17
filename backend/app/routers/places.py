@@ -5,11 +5,15 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.place import Place, PlaceCategory
-from app.models.pet_policy import PetPolicy
 from app.models.user import User
 from app.schemas.place import PlaceCreate, PlaceUpdate, PlaceResponse, PlaceListResponse, PlaceFilter
 from app.services.auth import get_current_user
-from app.services.places import get_places_nearby, place_to_response, get_emergency_vets
+from app.services.places import (
+    get_places_nearby,
+    place_to_response,
+    get_emergency_vets,
+    create_place_with_default_policy,
+)
 from app.services.cache import cache_get, cache_set, place_cache_key, places_nearby_cache_key
 from app.services.photo_service import cache_place_thumbnail
 
@@ -119,16 +123,9 @@ async def create_place(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    place = Place(**data.model_dump(), owner_user_id=current_user.id)
-    db.add(place)
-    await db.flush()
-
-    # Phase 1: every place must have a pet_policies row. We create a default
-    # 'unknown' row at insertion time (service-layer auto-create per plan 1-2).
-    policy = PetPolicy(place_id=place.id)
-    db.add(policy)
-    await db.flush()
-
+    place = await create_place_with_default_policy(
+        db, data.model_dump(), owner_user_id=current_user.id,
+    )
     await db.refresh(place, ["pet_policy", "photos"])
     return place_to_response(place)
 

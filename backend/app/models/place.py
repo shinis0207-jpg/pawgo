@@ -20,6 +20,13 @@ class VisibilityStatus(str, enum.Enum):
 
 
 class Place(Base):
+    """In Phase 1+, always create via
+    services/places.py::create_place_with_default_policy().
+
+    Direct Place(...) instantiation outside that helper is discouraged
+    because a matching PetPolicy row will not be created automatically.
+    """
+
     __tablename__ = "places"
 
     id: Mapped[int] = mapped_column(primary_key=True)
