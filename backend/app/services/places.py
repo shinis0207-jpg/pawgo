@@ -1,9 +1,28 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, Float
+from sqlalchemy.orm import selectinload
 
-from app.models.place import Place, PlaceCategory
+from app.models.place import Place, PlaceCategory, VisibilityStatus
+from app.models.pet_policy import PetPolicy, PetAllowedStatus, VerificationStatus
 from app.models.vet import VetHospital
 from app.schemas.place import PlaceFilter
+
+
+# Categories shown by default on the main map (Phase 1 MVP).
+DEFAULT_MAP_CATEGORIES: tuple[PlaceCategory, ...] = (
+    PlaceCategory.RESTAURANT,
+    PlaceCategory.CAFE,
+)
+
+# Pet-allowed statuses that may appear on the main map (i.e., not unknown / not_allowed).
+DEFAULT_MAP_PET_ALLOWED = (PetAllowedStatus.ALLOWED, PetAllowedStatus.LIMITED)
+
+# Verification statuses considered "verified" for default map display.
+DEFAULT_MAP_VERIFIED = (
+    VerificationStatus.OFFICIAL_VERIFIED,
+    VerificationStatus.OWNER_VERIFIED,
+    VerificationStatus.ADMIN_VERIFIED,
+)
 
 
 def _haversine_km(lat: float, lng: float):
@@ -30,28 +49,47 @@ async def get_places_nearby(
     filters: PlaceFilter,
     page: int = 1,
     size: int = 20,
+    *,
+    include_unverified: bool = False,
 ) -> tuple[list[Place], int]:
+    """Default-map place lookup.
+
+    Filter semantics (Phase 1):
+        - visibility_status = 'visible'                            (always)
+        - category ∈ {restaurant, cafe}                            (always)
+        - pet_policies.pet_allowed_status ∈ {allowed, limited}     (always)
+        - pet_policies.verification_status ∈ {official_verified,
+            owner_verified, admin_verified}                        (unless include_unverified)
+    """
     distance_km = _haversine_km(lat, lng).label("distance_km")
 
     query = (
         select(Place, distance_km)
+        .outerjoin(PetPolicy, PetPolicy.place_id == Place.id)
         .where(
             _haversine_km(lat, lng) <= filters.radius_km,
             Place.is_active == True,
+            Place.visibility_status == VisibilityStatus.VISIBLE,
+            Place.category.in_(DEFAULT_MAP_CATEGORIES),
+            PetPolicy.pet_allowed_status.in_(DEFAULT_MAP_PET_ALLOWED),
         )
         .order_by(distance_km)
+        .options(selectinload(Place.pet_policy), selectinload(Place.photos))
     )
 
+    if not include_unverified:
+        query = query.where(PetPolicy.verification_status.in_(DEFAULT_MAP_VERIFIED))
+
+    # Category filter narrows further (must still be in the default categories).
     if filters.category:
+        if filters.category not in DEFAULT_MAP_CATEGORIES:
+            # Caller explicitly requested a hidden category — default map never shows it.
+            return [], 0
         query = query.where(Place.category == filters.category)
-    if filters.max_weight_kg is not None:
-        query = query.where(
-            (Place.max_weight_kg == None) | (Place.max_weight_kg >= filters.max_weight_kg)
-        )
-    if filters.allows_indoor is not None:
-        query = query.where(Place.allows_indoor == filters.allows_indoor)
+
     if filters.has_parking is not None:
         query = query.where(Place.has_parking == filters.has_parking)
+
     if filters.q:
         pattern = f"%{filters.q.strip()}%"
         query = query.where(
@@ -106,6 +144,25 @@ def place_to_response(place: Place, lang: str = "ko") -> dict:
     translation = next(
         (t for t in (place.translations or []) if t.language == lang), None
     )
+    policy = place.pet_policy
+    pet_policy_payload = None
+    if policy is not None:
+        pet_policy_payload = {
+            "pet_allowed_status": policy.pet_allowed_status,
+            "verification_status": policy.verification_status,
+            "indoor_allowed": policy.indoor_allowed,
+            "outdoor_allowed": policy.outdoor_allowed,
+            "dog_allowed": policy.dog_allowed,
+            "cat_allowed": policy.cat_allowed,
+            "max_weight_kg": policy.max_weight_kg,
+            "leash_required": policy.leash_required,
+            "carrier_required": policy.carrier_required,
+            "vaccination_required": policy.vaccination_required,
+            "notes": policy.notes,
+            "policy_source": policy.policy_source,
+            "confidence_score": policy.confidence_score,
+            "last_verified_at": policy.last_verified_at,
+        }
     return {
         "id": place.id,
         "name": translation.name if translation else place.name,
@@ -113,24 +170,23 @@ def place_to_response(place: Place, lang: str = "ko") -> dict:
         "latitude": place.latitude,
         "longitude": place.longitude,
         "address": translation.address if translation and translation.address else place.address,
+        "road_address": place.road_address,
         "city": place.city,
         "phone": place.phone,
         "website": place.website,
         "hours": place.hours,
-        "max_weight_kg": place.max_weight_kg,
-        "allows_indoor": place.allows_indoor,
-        "allows_outdoor": place.allows_outdoor,
         "has_parking": place.has_parking,
         "entrance_fee": place.entrance_fee,
         "description": translation.description if translation else place.description,
         "thumbnail_url": place.thumbnail_url,
         "rating": place.rating,
         "review_count": place.review_count,
-        "is_verified": place.is_verified,
+        "visibility_status": place.visibility_status,
         "photos": [
             {"id": p.id, "url": p.url, "caption": p.caption, "is_primary": p.is_primary}
             for p in (place.photos or [])
         ],
+        "pet_policy": pet_policy_payload,
         "distance_km": getattr(place, "_distance_km", None),
         "created_at": place.created_at,
     }

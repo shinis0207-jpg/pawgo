@@ -28,6 +28,17 @@ if _db_url:
     _db_url = _db_url.replace("postgresql+asyncpg://", "postgresql://", 1)
     config.set_main_option("sqlalchemy.url", _db_url)
 
+# Production guard: refuse to migrate against Railway DB unless explicitly allowed.
+# Set PAWGO_ALLOW_PRODUCTION_MIGRATE=1 to override (intended for one-off prod migrations).
+_effective_url = config.get_main_option("sqlalchemy.url") or ""
+_is_production = "rlwy.net" in _effective_url or "railway" in _effective_url.lower()
+if _is_production and os.environ.get("PAWGO_ALLOW_PRODUCTION_MIGRATE") != "1":
+    raise RuntimeError(
+        "Refusing to run Alembic against a production-looking DB "
+        f"({_effective_url.split('@')[-1] if '@' in _effective_url else _effective_url}). "
+        "Set PAWGO_ALLOW_PRODUCTION_MIGRATE=1 to override."
+    )
+
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")

@@ -25,4 +25,4 @@ class Pet(Base):
     )
 
     owner: Mapped["User"] = relationship("User", back_populates="pets")
-    reviews: Mapped[list["Review"]] = relationship("Review", back_populates="pet")
+    # Phase 1 reviews no longer carry pet_id; pet ↔ review relationship dropped.

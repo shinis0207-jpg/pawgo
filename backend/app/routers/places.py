@@ -1,9 +1,11 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.place import Place, PlaceCategory
+from app.models.pet_policy import PetPolicy
 from app.models.user import User
 from app.schemas.place import PlaceCreate, PlaceUpdate, PlaceResponse, PlaceListResponse, PlaceFilter
 from app.services.auth import get_current_user
@@ -19,12 +21,17 @@ async def get_nearby_places(
     lat: float = Query(..., ge=-90, le=90),
     lng: float = Query(..., ge=-180, le=180),
     category: PlaceCategory | None = None,
-    max_weight_kg: float | None = None,
-    allows_indoor: bool | None = None,
     has_parking: bool | None = None,
     radius_km: float = Query(default=5.0, le=50.0),
     lang: str = Query(default="ko"),
     q: str | None = Query(default=None, max_length=100),
+    include_unverified: bool = Query(
+        default=False,
+        description=(
+            "If true, bypass the verification_status filter. visibility/category/"
+            "pet_allowed_status filters still apply. Intended for search and admin views."
+        ),
+    ),
     page: int = Query(default=1, ge=1),
     size: int = Query(default=20, le=100),
     db: AsyncSession = Depends(get_db),
@@ -32,20 +39,25 @@ async def get_nearby_places(
     q_clean = q.strip() if q else None
     filters = PlaceFilter(
         category=category,
-        max_weight_kg=max_weight_kg,
-        allows_indoor=allows_indoor,
         has_parking=has_parking,
         radius_km=radius_km,
         lang=lang,
         q=q_clean or None,
     )
 
-    cache_key = places_nearby_cache_key(lat, lng, radius_km, str(category), lang, q_clean)
+    # Cache key distinguishes verified-only vs. include_unverified responses.
+    cache_namespace = "unverified" if include_unverified else "verified"
+    cache_key = (
+        places_nearby_cache_key(lat, lng, radius_km, str(category), lang, q_clean)
+        + f":{cache_namespace}"
+    )
     cached = await cache_get(cache_key)
     if cached and page == 1:
         return cached
 
-    places, total = await get_places_nearby(db, lat, lng, filters, page, size)
+    places, total = await get_places_nearby(
+        db, lat, lng, filters, page, size, include_unverified=include_unverified,
+    )
     items = [place_to_response(p, lang) for p in places]
     response = {"items": items, "total": total, "page": page, "size": size}
 
@@ -78,7 +90,11 @@ async def get_place(
     if cached:
         return cached
 
-    result = await db.execute(select(Place).where(Place.id == place_id, Place.is_active == True))
+    result = await db.execute(
+        select(Place)
+        .where(Place.id == place_id, Place.is_active == True)
+        .options(selectinload(Place.pet_policy), selectinload(Place.photos))
+    )
     place = result.scalar_one_or_none()
     if not place:
         raise HTTPException(status_code=404, detail="Place not found")
@@ -106,6 +122,14 @@ async def create_place(
     place = Place(**data.model_dump(), owner_user_id=current_user.id)
     db.add(place)
     await db.flush()
+
+    # Phase 1: every place must have a pet_policies row. We create a default
+    # 'unknown' row at insertion time (service-layer auto-create per plan 1-2).
+    policy = PetPolicy(place_id=place.id)
+    db.add(policy)
+    await db.flush()
+
+    await db.refresh(place, ["pet_policy", "photos"])
     return place_to_response(place)
 
 
@@ -116,7 +140,10 @@ async def update_place(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Place).where(Place.id == place_id))
+    result = await db.execute(
+        select(Place).where(Place.id == place_id)
+        .options(selectinload(Place.pet_policy), selectinload(Place.photos))
+    )
     place = result.scalar_one_or_none()
     if not place:
         raise HTTPException(status_code=404, detail="Place not found")

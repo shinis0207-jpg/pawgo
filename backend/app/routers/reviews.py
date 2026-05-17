@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
-from sqlalchemy.orm import selectinload
+from sqlalchemy import select
 
 from app.database import get_db
 from app.models.place import Place
@@ -9,7 +8,6 @@ from app.models.review import Review
 from app.models.user import User
 from app.schemas.review import ReviewCreate, ReviewUpdate, ReviewResponse
 from app.services.auth import get_current_user
-from app.services.cache import cache_delete
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
 
@@ -24,7 +22,6 @@ async def list_place_reviews(
     result = await db.execute(
         select(Review)
         .where(Review.place_id == place_id)
-        .options(selectinload(Review.user), selectinload(Review.pet), selectinload(Review.photos))
         .order_by(Review.created_at.desc())
         .offset((page - 1) * size)
         .limit(size)
@@ -46,14 +43,7 @@ async def create_review(
     review = Review(**data.model_dump(), user_id=current_user.id)
     db.add(review)
     await db.flush()
-
-    new_count = place.review_count + 1
-    new_rating = ((place.rating * place.review_count) + data.rating) / new_count
-    place.review_count = new_count
-    place.rating = round(new_rating, 2)
-
-    await cache_delete(f"place:{data.place_id}:*")
-    await db.refresh(review, ["user", "pet", "photos"])
+    await db.refresh(review)
     return review
 
 
@@ -65,9 +55,7 @@ async def update_review(
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
-        select(Review)
-        .where(Review.id == review_id, Review.user_id == current_user.id)
-        .options(selectinload(Review.user), selectinload(Review.pet), selectinload(Review.photos))
+        select(Review).where(Review.id == review_id, Review.user_id == current_user.id)
     )
     review = result.scalar_one_or_none()
     if not review:
@@ -75,6 +63,7 @@ async def update_review(
 
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(review, field, value)
+    await db.flush()
     return review
 
 

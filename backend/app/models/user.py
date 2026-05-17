@@ -41,4 +41,4 @@ class User(Base):
     )
 
     pets: Mapped[list["Pet"]] = relationship("Pet", back_populates="owner", lazy="selectin")
-    reviews: Mapped[list["Review"]] = relationship("Review", back_populates="user")
+    # reviews relationship dropped; Review.user_id is nullable and queried via filter.
