@@ -39,11 +39,13 @@ class PetPolicy(Base):
         ForeignKey("places.id", ondelete="CASCADE"), unique=True, index=True
     )
     pet_allowed_status: Mapped[PetAllowedStatus] = mapped_column(
-        SAEnum(PetAllowedStatus), default=PetAllowedStatus.UNKNOWN,
+        SAEnum(PetAllowedStatus, values_callable=lambda c: [m.value for m in c]),
+        default=PetAllowedStatus.UNKNOWN,
         server_default="unknown", index=True,
     )
     verification_status: Mapped[VerificationStatus] = mapped_column(
-        SAEnum(VerificationStatus), default=VerificationStatus.UNKNOWN,
+        SAEnum(VerificationStatus, values_callable=lambda c: [m.value for m in c]),
+        default=VerificationStatus.UNKNOWN,
         server_default="unknown", index=True,
     )
     indoor_allowed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
@@ -56,7 +58,8 @@ class PetPolicy(Base):
     vaccination_required: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     policy_source: Mapped[PolicySource] = mapped_column(
-        SAEnum(PolicySource), default=PolicySource.UNKNOWN, server_default="unknown",
+        SAEnum(PolicySource, values_callable=lambda c: [m.value for m in c]),
+        default=PolicySource.UNKNOWN, server_default="unknown",
     )
     confidence_score: Mapped[float] = mapped_column(Float, default=0.0, server_default="0.0")
     last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

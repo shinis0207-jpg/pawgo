@@ -52,7 +52,8 @@ class Place(Base):
     rating: Mapped[float] = mapped_column(Float, default=0.0)
     review_count: Mapped[int] = mapped_column(Integer, default=0)
     visibility_status: Mapped[VisibilityStatus] = mapped_column(
-        SAEnum(VisibilityStatus), default=VisibilityStatus.VISIBLE, server_default="visible", index=True
+        SAEnum(VisibilityStatus, values_callable=lambda c: [m.value for m in c]),
+        default=VisibilityStatus.VISIBLE, server_default="visible", index=True,
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     owner_user_id: Mapped[int | None] = mapped_column(

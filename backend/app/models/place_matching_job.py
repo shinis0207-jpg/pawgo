@@ -26,7 +26,8 @@ class PlaceMatchingJob(Base):
     naver_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     match_score: Mapped[float] = mapped_column(Float, default=0.0, server_default="0.0")
     status: Mapped[PlaceMatchingStatus] = mapped_column(
-        SAEnum(PlaceMatchingStatus), default=PlaceMatchingStatus.UNMATCHED,
+        SAEnum(PlaceMatchingStatus, values_callable=lambda c: [m.value for m in c]),
+        default=PlaceMatchingStatus.UNMATCHED,
         server_default="unmatched", index=True,
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

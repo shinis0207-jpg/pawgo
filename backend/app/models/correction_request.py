@@ -39,7 +39,8 @@ class CorrectionRequest(Base):
     evidence_image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     visit_date: Mapped[date | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[CorrectionRequestStatus] = mapped_column(
-        SAEnum(CorrectionRequestStatus), default=CorrectionRequestStatus.PENDING,
+        SAEnum(CorrectionRequestStatus, values_callable=lambda c: [m.value for m in c]),
+        default=CorrectionRequestStatus.PENDING,
         server_default="pending", index=True,
     )
     admin_note: Mapped[str | None] = mapped_column(Text, nullable=True)

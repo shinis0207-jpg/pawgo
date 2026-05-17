@@ -24,7 +24,8 @@ class OwnerClaim(Base):
     )
     verification_method: Mapped[str] = mapped_column(String(50))
     verification_status: Mapped[OwnerClaimStatus] = mapped_column(
-        SAEnum(OwnerClaimStatus), default=OwnerClaimStatus.PENDING,
+        SAEnum(OwnerClaimStatus, values_callable=lambda c: [m.value for m in c]),
+        default=OwnerClaimStatus.PENDING,
         server_default="pending", index=True,
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
