@@ -15,6 +15,7 @@ begin/commit/rollback nested under a SAVEPOINT so the outer transaction
 stays alive long enough to be rolled back at teardown.
 """
 import pytest_asyncio
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -38,6 +39,12 @@ async def db_session() -> AsyncSession:
         expire_on_commit=False,
         join_transaction_mode="create_savepoint",
     )
+    # Each test sees an empty places table inside its outer transaction.
+    # The DELETE is rolled back at teardown, so any seed data (Phase1-9 dummy,
+    # future MFDS imports, etc.) committed against the dev DB survives.
+    # CASCADE walks pet_policies / vet_hospitals / place_translations / etc.
+    await session.execute(text("DELETE FROM places"))
+    await session.flush()
     try:
         yield session
     finally:
