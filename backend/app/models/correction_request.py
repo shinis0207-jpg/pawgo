@@ -13,6 +13,15 @@ class CorrectionRequestStatus(str, enum.Enum):
     REJECTED = "rejected"
 
 
+class CorrectionRequestCategory(str, enum.Enum):
+    PET_ALLOWED_WRONG = "pet_allowed_wrong"  # "반려동물 동반 가능 여부가 틀려요"
+    CLOSED_DOWN = "closed_down"              # "이 카페 폐업했어요"
+    ADDRESS_CHANGED = "address_changed"      # "주소가 바뀌었어요"
+    PHONE_CHANGED = "phone_changed"          # "전화번호가 바뀌었어요"
+    INFO_OUTDATED = "info_outdated"          # "정보가 오래됐어요"
+    OTHER = "other"                          # "기타"
+
+
 class CorrectionRequest(Base):
     """User-submitted correction to a place's information.
 
@@ -30,7 +39,13 @@ class CorrectionRequest(Base):
     user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    request_type: Mapped[str] = mapped_column(String(50))
+    request_category: Mapped[CorrectionRequestCategory] = mapped_column(
+        SAEnum(CorrectionRequestCategory, values_callable=lambda c: [m.value for m in c]),
+        default=CorrectionRequestCategory.OTHER,
+        server_default="other",
+        nullable=False,
+        index=True,
+    )
     description: Mapped[str] = mapped_column(Text)
     current_info: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     requested_info: Mapped[dict | None] = mapped_column(JSON, nullable=True)

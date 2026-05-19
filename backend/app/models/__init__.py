@@ -9,7 +9,11 @@ from app.models.pet_policy import (
     VerificationStatus,
     PolicySource,
 )
-from app.models.correction_request import CorrectionRequest, CorrectionRequestStatus
+from app.models.correction_request import (
+    CorrectionRequest,
+    CorrectionRequestStatus,
+    CorrectionRequestCategory,
+)
 from app.models.owner_claim import OwnerClaim, OwnerClaimStatus
 from app.models.policy_change_log import PolicyChangeLog
 from app.models.place_matching_job import PlaceMatchingJob, PlaceMatchingStatus
@@ -32,6 +36,7 @@ __all__ = [
     "PolicySource",
     "CorrectionRequest",
     "CorrectionRequestStatus",
+    "CorrectionRequestCategory",
     "OwnerClaim",
     "OwnerClaimStatus",
     "PolicyChangeLog",
