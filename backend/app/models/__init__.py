@@ -1,4 +1,4 @@
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.pet import Pet
 from app.models.place import Place, PlaceTranslation, PlacePhoto, PlaceCategory, VisibilityStatus
 from app.models.review import Review
@@ -17,6 +17,7 @@ from app.models.place_rating import PlaceRating
 
 __all__ = [
     "User",
+    "UserRole",
     "Pet",
     "Place",
     "PlaceTranslation",
