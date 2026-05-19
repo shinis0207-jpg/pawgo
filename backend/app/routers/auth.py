@@ -13,6 +13,8 @@ from app.services.auth import (
     get_kakao_user_info,
     get_google_user_info,
     get_or_create_oauth_user,
+    resolve_user_role_from_email,
+    token_payload_for,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -29,11 +31,12 @@ async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
         name=data.name,
         hashed_password=hash_password(data.password),
         language=data.language,
+        role=resolve_user_role_from_email(data.email),
     )
     db.add(user)
     await db.flush()
 
-    token = create_access_token({"sub": str(user.id)})
+    token = create_access_token(token_payload_for(user))
     return Token(access_token=token, user=UserResponse.model_validate(user))
 
 
@@ -46,7 +49,13 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
 
-    token = create_access_token({"sub": str(user.id)})
+    # Every login re-resolves the role so additions/removals in ADMIN_EMAILS
+    # take effect on the user's next login without a separate migration.
+    desired_role = resolve_user_role_from_email(user.email)
+    if user.role != desired_role:
+        user.role = desired_role
+
+    token = create_access_token(token_payload_for(user))
     return Token(access_token=token, user=UserResponse.model_validate(user))
 
 
@@ -67,7 +76,7 @@ async def oauth_login(data: OAuthLogin, db: AsyncSession = Depends(get_db)):
         name=info["name"],
         profile_image=info.get("profile_image"),
     )
-    token = create_access_token({"sub": str(user.id)})
+    token = create_access_token(token_payload_for(user))
     return Token(access_token=token, user=UserResponse.model_validate(user))
 
 

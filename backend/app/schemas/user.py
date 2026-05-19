@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
-from app.models.user import AuthProvider, Language
+from app.models.user import AuthProvider, Language, UserRole
 
 
 class UserCreate(BaseModel):
@@ -23,6 +23,7 @@ class UserResponse(BaseModel):
     language: Language
     profile_image_url: str | None
     is_verified: bool
+    role: UserRole
     created_at: datetime
 
     model_config = {"from_attributes": True}

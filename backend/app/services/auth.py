@@ -9,7 +9,7 @@ import httpx
 
 from app.config import get_settings
 from app.database import get_db
-from app.models.user import User, AuthProvider, Language
+from app.models.user import User, AuthProvider, Language, UserRole
 from app.schemas.user import TokenData
 
 settings = get_settings()
@@ -30,6 +30,30 @@ def create_access_token(data: dict) -> str:
     expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
     payload.update({"exp": expire})
     return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
+
+
+def resolve_user_role_from_email(email: str) -> UserRole:
+    """Decide a user's role based on the ADMIN_EMAILS allowlist.
+
+    Called on every register / login / oauth login so admin promotion or
+    demotion takes effect on the user's next authenticated touch (no
+    daemon to wait for).
+    """
+    if not email:
+        return UserRole.USER
+    if email.strip().lower() in settings.admin_emails_list:
+        return UserRole.ADMIN
+    return UserRole.USER
+
+
+def token_payload_for(user: User) -> dict:
+    """Standardised JWT payload — `sub` carries the user id (per RFC 7519's
+    typical use) and `role` carries the current role so admin checks don't
+    need a DB round-trip on every request when we just want the bool.
+    Note: `get_current_user` still re-reads the DB so that demotions take
+    effect mid-token-lifetime.
+    """
+    return {"sub": str(user.id), "role": user.role.value}
 
 
 async def get_current_user(
@@ -54,6 +78,16 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
     return user
+
+
+async def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Gate an endpoint behind admin role. 401 still surfaces from
+    get_current_user; this layer only raises 403 for authenticated but
+    non-admin users.
+    """
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required")
+    return current_user
 
 
 async def get_kakao_user_info(access_token: str) -> dict:
@@ -99,11 +133,15 @@ async def get_or_create_oauth_user(
     name: str,
     profile_image: str | None,
 ) -> User:
+    desired_role = resolve_user_role_from_email(email)
+
     result = await db.execute(
         select(User).where(User.auth_provider == provider, User.oauth_id == oauth_id)
     )
     user = result.scalar_one_or_none()
     if user:
+        if user.role != desired_role:
+            user.role = desired_role
         return user
 
     result = await db.execute(select(User).where(User.email == email))
@@ -111,6 +149,8 @@ async def get_or_create_oauth_user(
     if user:
         user.oauth_id = oauth_id
         user.auth_provider = provider
+        if user.role != desired_role:
+            user.role = desired_role
         return user
 
     user = User(
@@ -120,6 +160,7 @@ async def get_or_create_oauth_user(
         oauth_id=oauth_id,
         profile_image_url=profile_image,
         is_verified=True,
+        role=desired_role,
     )
     db.add(user)
     await db.flush()

@@ -43,6 +43,15 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: list[str] = ["*"]
 
+    # Admin role assignment.
+    # Comma-separated emails in .env (e.g. ADMIN_EMAILS=a@x.com,b@y.com).
+    # Empty string -> empty list (service stays healthy with no admins).
+    admin_emails: str = ""
+
+    @property
+    def admin_emails_list(self) -> list[str]:
+        return [e.strip().lower() for e in self.admin_emails.split(",") if e.strip()]
+
     def model_post_init(self, __context: object) -> None:
         # Railway provides postgresql:// — convert to asyncpg scheme
         if self.database_url.startswith("postgresql://"):
