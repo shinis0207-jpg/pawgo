@@ -10,7 +10,6 @@ from app.models.correction_request import (
     CorrectionRequestStatus,
     CorrectionRequestCategory,
 )
-from app.models.pet_policy import PetPolicy
 from app.models.user import User
 from app.schemas.correction_request import (
     CorrectionRequestResponse,
@@ -18,6 +17,7 @@ from app.schemas.correction_request import (
     AdminCorrectionAction,
 )
 from app.services.auth import require_admin
+from app.services.policy_logger import update_pet_policy_with_logging
 from app.services.trust_engine import apply_trust_evaluation
 
 
@@ -25,10 +25,12 @@ router = APIRouter(prefix="/admin/correction-requests", tags=["admin"])
 
 
 # Whitelist of pet_policies columns an admin is allowed to set via
-# pet_policy_update. Anything outside this set is a 422.
+# requested_info. verification_status is deliberately EXCLUDED so the
+# trust engine remains the sole writer for that column — admins set the
+# observable facts (pet_allowed_status, indoor_allowed, ...) and the
+# verification band is recomputed downstream.
 _ALLOWED_POLICY_FIELDS = {
     "pet_allowed_status",
-    "verification_status",
     "indoor_allowed",
     "outdoor_allowed",
     "dog_allowed",
@@ -101,8 +103,8 @@ async def admin_resolve(
 
     # action == "approve"
     # The user's requested_info IS the change set. Admins gate it but
-    # don't rewrite it; if you need different values, reject and ask
-    # the user to resubmit, or edit the place via a future admin tool.
+    # don't rewrite it. verification_status is NOT in the whitelist —
+    # it's owned by the trust engine and recomputed below.
     info = req.requested_info or {}
     if info:
         unknown = set(info) - _ALLOWED_POLICY_FIELDS
@@ -114,17 +116,15 @@ async def admin_resolve(
                     f"{sorted(unknown)}"
                 ),
             )
-        policy = (await db.execute(
-            select(PetPolicy).where(PetPolicy.place_id == req.place_id)
-        )).scalar_one_or_none()
-        if policy is None:
-            raise HTTPException(
-                status_code=409,
-                detail="pet_policies row missing for this place — investigate "
-                       "the helper invariant before retrying.",
+        try:
+            await update_pet_policy_with_logging(
+                db, req.place_id,
+                changes=info,
+                changed_by=f"admin:{admin.id}",
+                reason=f"correction_request:{req.id}",
             )
-        for field, value in info.items():
-            setattr(policy, field, value)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc))
     # else: notification-style request (e.g. closed_down with no
     # requested_info) — just flip status, no policy edit.
 

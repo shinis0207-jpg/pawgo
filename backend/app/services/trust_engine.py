@@ -199,12 +199,23 @@ async def apply_trust_evaluation(
     pet_policies / correction_requests / owner_claims / policy_change_logs
     for a given place_id calls this helper before its outer transaction
     commits, so the trust band reflects the new inputs immediately.
+
+    The actual write goes through update_pet_policy_with_logging so the
+    verification_status flip is audited just like any other field change.
     """
+    # Local import avoids a circular pulled by policy_logger's downstream
+    # dependence on trust_engine in some future tests.
+    from app.services.policy_logger import update_pet_policy_with_logging
+
     new_status = await evaluate_verification_status(db, place_id)
     policy = (await db.execute(
         select(PetPolicy).where(PetPolicy.place_id == place_id)
     )).scalar_one_or_none()
     if policy is not None and policy.verification_status != new_status:
-        policy.verification_status = new_status
-        await db.flush()
+        await update_pet_policy_with_logging(
+            db, place_id,
+            changes={"verification_status": new_status},
+            changed_by="system:trust_engine",
+            reason="auto_reevaluation",
+        )
     return new_status
