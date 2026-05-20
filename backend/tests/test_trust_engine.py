@@ -121,7 +121,7 @@ async def test_mfds_only_returns_official_verified(db_session):
 
 async def test_owner_claim_only_returns_owner_verified(db_session):
     place = await _make_place(db_session)
-    owner = await _make_user(db_session, email="owner-only@test")
+    owner = await _make_user(db_session, email="owner-only@test.com")
     db_session.add(OwnerClaim(
         place_id=place.id,
         owner_user_id=owner.id,
@@ -191,7 +191,7 @@ async def test_mfds_allowed_vs_three_not_allowed_reports_returns_under_review(db
 async def test_mfds_allowed_vs_owner_not_allowed_returns_under_review(db_session):
     place = await _make_place(db_session, official_mfds_id="MFDS_TEST_3")
     await _mark_mfds(db_session, place.id, pet_allowed=PetAllowedStatus.ALLOWED)
-    owner = await _make_user(db_session, email="mfds-vs-owner@test")
+    owner = await _make_user(db_session, email="mfds-vs-owner@test.com")
     db_session.add(OwnerClaim(
         place_id=place.id,
         owner_user_id=owner.id,
