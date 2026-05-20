@@ -18,6 +18,7 @@ from app.schemas.correction_request import (
     AdminCorrectionAction,
 )
 from app.services.auth import require_admin
+from app.services.trust_engine import apply_trust_evaluation
 
 
 router = APIRouter(prefix="/admin/correction-requests", tags=["admin"])
@@ -132,5 +133,10 @@ async def admin_resolve(
     req.resolved_at = datetime.now(timezone.utc)
 
     await db.flush()
+
+    # Re-evaluate verification_status now that the new approved report +
+    # any pet_policies edits are visible inside this transaction.
+    await apply_trust_evaluation(db, req.place_id)
+
     await db.refresh(req)
     return req
