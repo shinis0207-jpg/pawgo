@@ -39,3 +39,18 @@ class CorrectionRequestListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class AdminCorrectionAction(BaseModel):
+    """Admin verdict on a correction request.
+
+    On `approve`, the underlying request's `requested_info` JSON is the
+    sole source of pet_policies edits — the admin can't override the
+    payload here. This keeps the user's submission as the canonical
+    change set; admins gate it through but don't rewrite it. For
+    notification-style categories whose `requested_info` is empty
+    (closed_down, info_outdated, ...), approve just flips status without
+    touching pet_policies.
+    """
+    action: str = Field(pattern="^(approve|reject)$")
+    admin_note: str | None = Field(default=None, max_length=2000)

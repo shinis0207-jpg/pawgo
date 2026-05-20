@@ -4,7 +4,10 @@ from contextlib import asynccontextmanager
 
 from app.config import get_settings
 from app.database import engine, Base
-from app.routers import auth, pets, places, reviews, ai, correction_requests
+from app.routers import (
+    auth, pets, places, reviews, ai,
+    correction_requests, admin_correction_requests,
+)
 
 settings = get_settings()
 
@@ -41,6 +44,7 @@ app.include_router(places.router, prefix=PREFIX)
 app.include_router(reviews.router, prefix=PREFIX)
 app.include_router(ai.router, prefix=PREFIX)
 app.include_router(correction_requests.router, prefix=PREFIX)
+app.include_router(admin_correction_requests.router, prefix=PREFIX)
 
 
 @app.get("/health")
