@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.correction_request import (
@@ -44,7 +45,9 @@ async def submit_correction_request(
     )
     db.add(req)
     await db.flush()
-    await db.refresh(req)
+    # Refresh with the place relationship so response_model serialisation
+    # never triggers an async lazy load.
+    await db.refresh(req, ["place"])
     return req
 
 
@@ -66,7 +69,8 @@ async def list_my_correction_requests(
     )).scalar_one()
 
     rows = (await db.execute(
-        base.order_by(CorrectionRequest.created_at.desc())
+        base.options(selectinload(CorrectionRequest.place))
+            .order_by(CorrectionRequest.created_at.desc())
             .offset((page - 1) * page_size)
             .limit(page_size)
     )).scalars().all()

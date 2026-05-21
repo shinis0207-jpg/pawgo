@@ -5,6 +5,20 @@ from app.models.correction_request import (
     CorrectionRequestStatus,
     CorrectionRequestCategory,
 )
+from app.models.place import PlaceCategory
+
+
+class CorrectionRequestPlaceMini(BaseModel):
+    """Minimal place projection embedded inside a correction-request
+    response so callers can render the place name + category in one
+    round-trip. Routers MUST selectinload CorrectionRequest.place before
+    serialising to avoid async lazy-load.
+    """
+    id: int
+    name: str
+    category: PlaceCategory
+
+    model_config = {"from_attributes": True}
 
 
 class CorrectionRequestCreate(BaseModel):
@@ -19,6 +33,7 @@ class CorrectionRequestCreate(BaseModel):
 class CorrectionRequestResponse(BaseModel):
     id: int
     place_id: int
+    place: CorrectionRequestPlaceMini
     user_id: int | None
     request_category: CorrectionRequestCategory
     description: str

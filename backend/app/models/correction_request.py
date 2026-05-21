@@ -61,3 +61,7 @@ class CorrectionRequest(Base):
     admin_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Read-only relationship for response payloads. Callers must
+    # selectinload(CorrectionRequest.place) to avoid async lazy-load.
+    place: Mapped["Place"] = relationship("Place")

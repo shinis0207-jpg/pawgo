@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.correction_request import (
@@ -68,7 +69,8 @@ async def list_admin_queue(
     )).scalar_one()
 
     rows = (await db.execute(
-        base.order_by(CorrectionRequest.created_at.desc())
+        base.options(selectinload(CorrectionRequest.place))
+            .order_by(CorrectionRequest.created_at.desc())
             .offset((page - 1) * page_size)
             .limit(page_size)
     )).scalars().all()
@@ -86,7 +88,9 @@ async def admin_resolve(
     db: AsyncSession = Depends(get_db),
 ):
     req = (await db.execute(
-        select(CorrectionRequest).where(CorrectionRequest.id == request_id)
+        select(CorrectionRequest)
+        .where(CorrectionRequest.id == request_id)
+        .options(selectinload(CorrectionRequest.place))
     )).scalar_one_or_none()
     if req is None:
         raise HTTPException(status_code=404, detail="Correction request not found")
@@ -98,7 +102,7 @@ async def admin_resolve(
         req.admin_note = payload.admin_note
         req.resolved_at = datetime.now(timezone.utc)
         await db.flush()
-        await db.refresh(req)
+        await db.refresh(req, ["place"])
         return req
 
     # action == "approve"
@@ -138,5 +142,5 @@ async def admin_resolve(
     # any pet_policies edits are visible inside this transaction.
     await apply_trust_evaluation(db, req.place_id)
 
-    await db.refresh(req)
+    await db.refresh(req, ["place"])
     return req

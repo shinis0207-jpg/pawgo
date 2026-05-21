@@ -91,6 +91,37 @@ async def test_list_only_returns_own_requests(db_session):
     assert bob_view.items[0].description == "bob-1"
 
 
+async def test_response_includes_place_mini_projection(db_session):
+    """Phase 2D contract: every correction-request response carries the
+    embedded `place` object (id + name + category) so the mobile "my
+    corrections" list can render the place name without an extra fetch.
+    """
+    from app.schemas.correction_request import CorrectionRequestResponse
+
+    user = await _make_user(db_session, "place-mini@test.com")
+    place = await _make_place(db_session, "place-mini-cafe")
+    req = await submit_correction_request(
+        CorrectionRequestCreate(place_id=place.id, description="check place mini"),
+        current_user=user, db=db_session,
+    )
+
+    # The router's submit path runs db.refresh(req, ["place"]); validating
+    # through pydantic asserts the projection serialises without an async
+    # lazy-load surprise.
+    payload = CorrectionRequestResponse.model_validate(req)
+    assert payload.place.id == place.id
+    assert payload.place.name == "place-mini-cafe"
+    assert payload.place.category == place.category
+
+    # Same coverage via the list endpoint.
+    listed = await list_my_correction_requests(
+        current_user=user, db=db_session,
+        status_filter=None, page=1, page_size=20,
+    )
+    assert len(listed.items) == 1
+    assert listed.items[0].place.name == "place-mini-cafe"
+
+
 async def test_list_status_filter(db_session):
     alice = await _make_user(db_session, "filter@test.com")
     place = await _make_place(db_session, "p3")
