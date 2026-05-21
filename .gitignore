@@ -25,5 +25,8 @@ backend/.venv/
 *.log
 npm-debug.log*
 
+# db backups (plaintext SQL dumps — never push)
+backups/
+
 # claude
 .claude/
