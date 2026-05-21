@@ -161,5 +161,16 @@
     "placeholder": "반려동물 여행에 대해 물어보세요",
     "thinking": "답변 생성 중...",
     "travel_tips": "여행 팁 받기"
+  },
+  "verification": {
+    "official_verified": "공식 확인",
+    "owner_verified": "운영자 확인",
+    "admin_verified": "관리자 확인",
+    "user_reported": "방문자 제보",
+    "under_review": "정정 검토 중",
+    "unknown": "확인되지 않음",
+    "note_supplementary": "참고",
+    "note_call_first": "방문 전 전화 확인 권장",
+    "note_check_before_visit": "방문 전 확인 권장"
   }
 }

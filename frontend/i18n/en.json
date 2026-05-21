@@ -161,5 +161,16 @@
     "placeholder": "Ask about pet-friendly travel...",
     "thinking": "Thinking...",
     "travel_tips": "Get Travel Tips"
+  },
+  "verification": {
+    "official_verified": "Official",
+    "owner_verified": "Owner verified",
+    "admin_verified": "Admin verified",
+    "user_reported": "User-reported",
+    "under_review": "Under review",
+    "unknown": "Unverified",
+    "note_supplementary": "FYI",
+    "note_call_first": "Call ahead recommended",
+    "note_check_before_visit": "Verify before visiting"
   }
 }

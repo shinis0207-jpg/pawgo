@@ -2,6 +2,43 @@ export type Language = "ko" | "en" | "ja" | "zh";
 
 export type PlaceCategory = "accommodation" | "restaurant" | "cafe" | "park" | "vet";
 
+// Phase 2A backend enum — DB stores lowercase; matches values_callable on the
+// model. Keep this in sync with backend/app/models/pet_policy.py::VerificationStatus.
+export type VerificationStatus =
+  | "official_verified"
+  | "owner_verified"
+  | "admin_verified"
+  | "user_reported"
+  | "under_review"
+  | "unknown";
+
+export type PetAllowedStatus = "allowed" | "limited" | "not_allowed" | "unknown";
+
+export type PolicySource =
+  | "mfds"
+  | "owner"
+  | "admin"
+  | "user_report"
+  | "external"
+  | "unknown";
+
+export interface PetPolicy {
+  pet_allowed_status: PetAllowedStatus;
+  verification_status: VerificationStatus;
+  indoor_allowed: boolean | null;
+  outdoor_allowed: boolean | null;
+  dog_allowed: boolean | null;
+  cat_allowed: boolean | null;
+  max_weight_kg: number | null;
+  leash_required: boolean | null;
+  carrier_required: boolean | null;
+  vaccination_required: boolean | null;
+  notes: string | null;
+  policy_source: PolicySource;
+  confidence_score: number;
+  last_verified_at: string | null;
+}
+
 export interface User {
   id: number;
   email: string;
@@ -63,6 +100,9 @@ export interface Place {
   review_count: number;
   is_verified: boolean;
   photos: PlacePhoto[];
+  // Phase 2A: backend exposes a nested pet_policy block on the place
+  // response. Optional here because legacy callers may not select it.
+  pet_policy?: PetPolicy | null;
   distance_km: number | null;
   created_at: string;
 }

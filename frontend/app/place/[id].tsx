@@ -21,6 +21,7 @@ import { usePlace } from "@/hooks/usePlaces";
 import { Colors, Spacing, Radius, Typography, categoryColors } from "@/constants/theme";
 import { Review } from "@/types";
 import { CategoryPlaceholder } from "@/components/CategoryPlaceholder";
+import { VerificationBadge } from "@/components/VerificationBadge";
 
 export default function PlaceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -81,15 +82,14 @@ export default function PlaceDetailScreen() {
                 <View style={[styles.categoryBadge, { backgroundColor: categoryColor }]}>
                   <Text style={styles.categoryBadgeText}>{t(`categories.${place.category}`)}</Text>
                 </View>
-                {place.is_verified && (
-                  <View style={styles.verifiedBadge}>
-                    <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
-                    <Text style={styles.verifiedText}>{t("place.verified")}</Text>
-                  </View>
-                )}
               </View>
               <Text style={styles.placeName}>{place.name}</Text>
               <Text style={styles.placeAddress}>{place.address}</Text>
+              <View style={styles.verificationRow}>
+                <VerificationBadge
+                  status={place.pet_policy?.verification_status}
+                />
+              </View>
             </View>
           </View>
 
@@ -345,6 +345,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
   },
   verifiedText: { ...Typography.caption, color: Colors.success, fontWeight: "600" },
+  verificationRow: { marginTop: Spacing.sm },
   placeName: { ...Typography.h1, color: Colors.text, marginBottom: Spacing.xs },
   placeAddress: { ...Typography.body, color: Colors.textSecondary },
   ratingRow: {
