@@ -36,9 +36,17 @@ export type CorrectionRequestStatus =
   | "approved"
   | "rejected";
 
+export interface CorrectionRequestPlaceMini {
+  id: number;
+  name: string;
+  category: PlaceCategory;
+}
+
 export interface CorrectionRequest {
   id: number;
   place_id: number;
+  /** Phase 2D backend projection: minimal embedded place. */
+  place: CorrectionRequestPlaceMini;
   user_id: number | null;
   request_category: CorrectionRequestCategory;
   description: string;

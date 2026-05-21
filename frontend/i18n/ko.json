@@ -145,7 +145,8 @@
     "privacy": "개인정보처리방침",
     "version": "버전",
     "logout": "로그아웃",
-    "delete_account": "회원 탈퇴"
+    "delete_account": "회원 탈퇴",
+    "activity_section": "활동"
   },
   "vet": {
     "emergency": "긴급",
@@ -184,7 +185,19 @@
       "phone_changed": "전화번호가 바뀌었어요",
       "info_outdated": "정보가 오래됐어요",
       "other": "기타"
-    }
+    },
+    "status": {
+      "pending": "대기 중",
+      "reviewing": "검토 중",
+      "approved": "반영됨",
+      "rejected": "반려"
+    },
+    "my_list_title": "내 정정 요청",
+    "my_list_menu": "내 정정 요청",
+    "my_list_empty_title": "아직 정정 요청이 없어요",
+    "my_list_empty_body": "장소 상세에서 '정보가 틀려요'를 눌러 제보할 수 있어요.",
+    "my_list_load_error": "목록을 불러오지 못했어요.",
+    "my_list_retry": "다시 시도"
   },
   "verification": {
     "official_verified": "공식 확인",

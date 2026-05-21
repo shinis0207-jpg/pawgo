@@ -115,6 +115,15 @@ export default function ProfileScreen() {
           </View>
         </Section>
 
+        {/* Activity */}
+        <Section title={t("profile.activity_section")}>
+          <MenuItem
+            icon="alert-circle-outline"
+            label={t("correction.my_list_menu")}
+            onPress={() => router.push("/profile/corrections")}
+          />
+        </Section>
+
         {/* Menu */}
         <Section title="설정">
           <MenuItem icon="notifications-outline" label={t("profile.notifications")} />

@@ -145,7 +145,8 @@
     "privacy": "Privacy Policy",
     "version": "Version",
     "logout": "Log Out",
-    "delete_account": "Delete Account"
+    "delete_account": "Delete Account",
+    "activity_section": "Activity"
   },
   "vet": {
     "emergency": "Emergency",
@@ -184,7 +185,19 @@
       "phone_changed": "The phone number has changed",
       "info_outdated": "The info is outdated",
       "other": "Other"
-    }
+    },
+    "status": {
+      "pending": "Pending",
+      "reviewing": "Reviewing",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "my_list_title": "My corrections",
+    "my_list_menu": "My corrections",
+    "my_list_empty_title": "No corrections yet",
+    "my_list_empty_body": "Tap \"Report incorrect info\" on a place to submit one.",
+    "my_list_load_error": "Couldn't load your corrections.",
+    "my_list_retry": "Retry"
   },
   "verification": {
     "official_verified": "Official",
