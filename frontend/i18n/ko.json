@@ -162,6 +162,30 @@
     "thinking": "답변 생성 중...",
     "travel_tips": "여행 팁 받기"
   },
+  "correction": {
+    "report_info_button": "정보가 틀려요",
+    "modal_title": "정보 정정 요청",
+    "category_label": "어떤 정보가 틀렸나요?",
+    "description_label": "자세히 설명해주세요",
+    "description_placeholder": "예: 강아지 입장이 안 된다고 합니다. 지난주 방문 시 직원분이 안내해주셨어요.",
+    "submit": "제출하기",
+    "disclaimer": "제출된 내용은 관리자 검토 후 반영됩니다. 즉시 변경되지 않습니다.",
+    "success_title": "제출 완료",
+    "success_body": "관리자 검토 후 반영됩니다. 정정 결과는 내 활동에서 확인할 수 있어요.",
+    "error_generic": "제출에 실패했어요. 잠시 후 다시 시도해주세요.",
+    "error_auth": "로그인이 만료됐어요. 다시 로그인해주세요.",
+    "auth_required_title": "로그인이 필요해요",
+    "auth_required_body": "정정 요청을 보내려면 로그인이 필요해요.",
+    "auth_required_cta": "로그인하기",
+    "category": {
+      "pet_allowed_wrong": "반려동물 동반 가능 여부가 틀려요",
+      "closed_down": "이 가게 폐업했어요",
+      "address_changed": "주소가 바뀌었어요",
+      "phone_changed": "전화번호가 바뀌었어요",
+      "info_outdated": "정보가 오래됐어요",
+      "other": "기타"
+    }
+  },
   "verification": {
     "official_verified": "공식 확인",
     "owner_verified": "운영자 확인",

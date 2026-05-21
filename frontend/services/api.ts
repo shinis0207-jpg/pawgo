@@ -1,6 +1,16 @@
 import axios, { AxiosError } from "axios";
 import * as SecureStore from "expo-secure-store";
-import { PlaceFilter, PlaceListResponse, Place, Pet, Review, User } from "@/types";
+import {
+  PlaceFilter,
+  PlaceListResponse,
+  Place,
+  Pet,
+  Review,
+  User,
+  CorrectionRequest,
+  CorrectionRequestCreatePayload,
+  CorrectionRequestStatus,
+} from "@/types";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
 
@@ -115,4 +125,23 @@ export const aiApi = {
       pet_type,
       pet_weight,
     }),
+};
+
+// Correction requests (user side). admin queue lives at /admin/correction-requests
+// and is consumed by a future admin UI, not from the mobile app.
+export const correctionRequestsApi = {
+  submit: (data: CorrectionRequestCreatePayload) =>
+    apiClient.post<CorrectionRequest>("/correction-requests", data),
+
+  listMine: (params?: {
+    status?: CorrectionRequestStatus;
+    page?: number;
+    page_size?: number;
+  }) =>
+    apiClient.get<{
+      items: CorrectionRequest[];
+      total: number;
+      page: number;
+      page_size: number;
+    }>("/correction-requests", { params }),
 };

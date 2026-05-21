@@ -22,6 +22,45 @@ export type PolicySource =
   | "external"
   | "unknown";
 
+export type CorrectionRequestCategory =
+  | "pet_allowed_wrong"
+  | "closed_down"
+  | "address_changed"
+  | "phone_changed"
+  | "info_outdated"
+  | "other";
+
+export type CorrectionRequestStatus =
+  | "pending"
+  | "reviewing"
+  | "approved"
+  | "rejected";
+
+export interface CorrectionRequest {
+  id: number;
+  place_id: number;
+  user_id: number | null;
+  request_category: CorrectionRequestCategory;
+  description: string;
+  current_info: Record<string, unknown> | null;
+  requested_info: Record<string, unknown> | null;
+  evidence_image_url: string | null;
+  visit_date: string | null;
+  status: CorrectionRequestStatus;
+  admin_note: string | null;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export interface CorrectionRequestCreatePayload {
+  place_id: number;
+  request_category: CorrectionRequestCategory;
+  description: string;
+  // requested_info is intentionally omitted in the v1 mobile form — admins
+  // read the free-text description and propose the change themselves.
+  visit_date?: string;
+}
+
 export interface PetPolicy {
   pet_allowed_status: PetAllowedStatus;
   verification_status: VerificationStatus;

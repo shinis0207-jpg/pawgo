@@ -162,6 +162,30 @@
     "thinking": "Thinking...",
     "travel_tips": "Get Travel Tips"
   },
+  "correction": {
+    "report_info_button": "Report incorrect info",
+    "modal_title": "Suggest a correction",
+    "category_label": "What's incorrect?",
+    "description_label": "Describe the issue",
+    "description_placeholder": "e.g. Dogs aren't allowed inside — staff told us during our last visit.",
+    "submit": "Submit",
+    "disclaimer": "Submissions are applied only after admin review. Nothing changes instantly.",
+    "success_title": "Submitted",
+    "success_body": "An admin will review your report. You can track it in your activity.",
+    "error_generic": "Submission failed. Please try again in a moment.",
+    "error_auth": "Your session expired. Please sign in again.",
+    "auth_required_title": "Sign in required",
+    "auth_required_body": "You need to sign in to submit a correction.",
+    "auth_required_cta": "Sign in",
+    "category": {
+      "pet_allowed_wrong": "Pet-allowed status is wrong",
+      "closed_down": "This place has closed down",
+      "address_changed": "The address has changed",
+      "phone_changed": "The phone number has changed",
+      "info_outdated": "The info is outdated",
+      "other": "Other"
+    }
+  },
   "verification": {
     "official_verified": "Official",
     "owner_verified": "Owner verified",

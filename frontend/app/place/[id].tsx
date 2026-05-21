@@ -22,6 +22,8 @@ import { Colors, Spacing, Radius, Typography, categoryColors } from "@/constants
 import { Review } from "@/types";
 import { CategoryPlaceholder } from "@/components/CategoryPlaceholder";
 import { VerificationBadge } from "@/components/VerificationBadge";
+import { CorrectionRequestModal } from "@/components/CorrectionRequestModal";
+import { useAuthStore } from "@/store/authStore";
 
 export default function PlaceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -30,6 +32,8 @@ export default function PlaceDetailScreen() {
   const placeId = parseInt(id);
 
   const { data: place, isLoading } = usePlace(placeId);
+  const token = useAuthStore((s) => s.token);
+  const [showCorrectionModal, setShowCorrectionModal] = useState(false);
 
   const { data: reviews } = useQuery({
     queryKey: ["reviews", placeId],
@@ -47,6 +51,24 @@ export default function PlaceDetailScreen() {
 
   const handleCall = () => {
     if (place.phone) Linking.openURL(`tel:${place.phone}`);
+  };
+
+  const handleReportInfo = () => {
+    if (!token) {
+      Alert.alert(
+        t("correction.auth_required_title"),
+        t("correction.auth_required_body"),
+        [
+          { text: t("common.cancel"), style: "cancel" },
+          {
+            text: t("correction.auth_required_cta"),
+            onPress: () => router.push("/auth"),
+          },
+        ],
+      );
+      return;
+    }
+    setShowCorrectionModal(true);
   };
 
   const handleDirections = () => {
@@ -196,8 +218,27 @@ export default function PlaceDetailScreen() {
               ))
             )}
           </View>
+
+          {/* Report incorrect info — entry point for the correction-request flow. */}
+          <TouchableOpacity
+            style={styles.reportInfoBtn}
+            onPress={handleReportInfo}
+            accessibilityRole="button"
+          >
+            <Ionicons name="alert-circle-outline" size={16} color={Colors.textSecondary} />
+            <Text style={styles.reportInfoText}>
+              {t("correction.report_info_button")}
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <CorrectionRequestModal
+        visible={showCorrectionModal}
+        placeId={place.id}
+        placeName={place.name}
+        onClose={() => setShowCorrectionModal(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -346,6 +387,24 @@ const styles = StyleSheet.create({
   },
   verifiedText: { ...Typography.caption, color: Colors.success, fontWeight: "600" },
   verificationRow: { marginTop: Spacing.sm },
+  reportInfoBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.xl,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  reportInfoText: {
+    ...Typography.bodySmall,
+    color: Colors.textSecondary,
+    fontWeight: "600",
+  },
   placeName: { ...Typography.h1, color: Colors.text, marginBottom: Spacing.xs },
   placeAddress: { ...Typography.body, color: Colors.textSecondary },
   ratingRow: {
