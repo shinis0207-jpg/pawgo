@@ -15,14 +15,14 @@ function buildMapHtml(
   apiKey: string,
   lat: number,
   lng: number,
-  markers: MapMarker[]
 ): string {
-  const markersJson = JSON.stringify(
-    markers.map((m) => ({
-      ...m,
-      color: CATEGORY_COLORS[m.category] ?? "#FF6B35",
-    }))
-  );
+  // markers are intentionally NOT inlined into the HTML — they are injected
+  // via webViewRef.injectJavaScript(updateMarkers(...)) from a useEffect on
+  // the React side. Inlining them here would change the html string every
+  // time `markers` changes, which would change WebView's `source` prop and
+  // force a page reload — wiping the user's pan/zoom and snapping the map
+  // back to initialLatitude/Longitude (= GPS). Keeping the HTML independent
+  // of markers makes the map carry its camera state across data updates.
 
   return `<!DOCTYPE html>
 <html>
@@ -98,11 +98,14 @@ function buildMapHtml(
         hideTooltip();
       });
 
-      // RN이 먼저 주입한 마커가 있으면 우선 사용, 없으면 초기 데이터 사용
-      var initial = ${markersJson};
-      var toRender = (pendingMarkers !== null) ? pendingMarkers : initial;
-      pendingMarkers = null;
-      if (toRender.length > 0) _renderMarkers(toRender);
+      // markers are never inlined; they arrive via injectJavaScript after the
+      // page is ready. If injectJavaScript landed before kakao.maps.load
+      // resolved, the call queued data into pendingMarkers — drain it now.
+      if (pendingMarkers !== null) {
+        var queued = pendingMarkers;
+        pendingMarkers = null;
+        if (queued.length > 0) _renderMarkers(queued);
+      }
 
       sendToRN({ type: 'mapReady' });
     });
@@ -240,7 +243,10 @@ const KakaoMapProvider = forwardRef<WebView, MapViewProps>(function KakaoMapProv
     [onMarkerPress, onRegionChange]
   );
 
-  const html = buildMapHtml(apiKey, initialLatitude, initialLongitude, markers);
+  // html is now ONLY a function of (apiKey, initialLatitude, initialLongitude).
+  // markers are injected separately so marker updates don't trigger a WebView
+  // reload (which used to snap the camera back to initialLatitude/Longitude).
+  const html = buildMapHtml(apiKey, initialLatitude, initialLongitude);
 
   const setRef = (node: WebView | null) => {
     (webViewRef as React.MutableRefObject<WebView | null>).current = node;
