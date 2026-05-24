@@ -104,10 +104,11 @@ export default function SearchScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Hint — only before the user starts typing. The search is a name/address
-          substring match, so "카페" / "식당" return fewer hits than category
-          intuition suggests. This nudges users toward the right mental model. */}
-      {!debouncedQuery && (
+      {/* Hint — only when the user hasn't typed *and* there are no results to
+          look at. With nearby results already on screen the hint just clutters;
+          the user can see places, the search box itself tells them they can
+          search. Hide during loading to prevent a flash. */}
+      {!debouncedQuery && !isLoading && items.length === 0 && (
         <View style={styles.hint}>
           <Text style={styles.hintText}>{t("search.hint")}</Text>
         </View>
@@ -142,11 +143,20 @@ export default function SearchScreen() {
           ListEmptyComponent={
             <View style={styles.center}>
               <Ionicons name="search-outline" size={48} color={Colors.textLight} />
-              <Text style={styles.emptyText}>
-                {debouncedQuery
-                  ? t("search.empty_no_query_match", { query: debouncedQuery })
-                  : t("search.empty_no_query")}
-              </Text>
+              {debouncedQuery ? (
+                <>
+                  <Text style={styles.emptyTitle}>
+                    {t("search.empty_match_title", { query: debouncedQuery })}
+                  </Text>
+                  <Text style={styles.emptyHint}>
+                    {t("search.empty_match_hint")}
+                  </Text>
+                </>
+              ) : (
+                <Text style={styles.emptyTitle}>
+                  {t("search.empty_no_query")}
+                </Text>
+              )}
             </View>
           }
           onEndReached={() => {
@@ -250,12 +260,20 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: Spacing.md,
+    gap: Spacing.sm,
     paddingVertical: Spacing.xxl,
+    paddingHorizontal: Spacing.xl,
   },
-  emptyText: {
+  emptyTitle: {
     ...Typography.body,
+    color: Colors.text,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  emptyHint: {
+    ...Typography.bodySmall,
     color: Colors.textSecondary,
+    textAlign: "center",
   },
   list: {
     paddingVertical: Spacing.md,

@@ -53,7 +53,8 @@
     "results_count": "{{count}}개 결과",
     "results_for": "\"{{query}}\" 검색 결과 {{count}}개",
     "hint": "가게 이름이나 주소로 검색하세요. 동반 가능 인증 여부를 확인할 수 있어요.",
-    "empty_no_query_match": "\"{{query}}\"에 대한 검색 결과가 없어요. 가게 이름 일부로 다시 검색해 보세요.",
+    "empty_match_title": "\"{{query}}\" 검색 결과가 없어요",
+    "empty_match_hint": "가게 이름 일부로 검색해 보세요",
     "empty_no_query": "주변에 표시할 장소가 없어요."
   },
   "categories": {
