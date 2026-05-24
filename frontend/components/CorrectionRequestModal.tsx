@@ -102,11 +102,12 @@ export function CorrectionRequestModal({
       visible={visible}
       animationType="slide"
       transparent
+      statusBarTranslucent
       onRequestClose={handleClose}
     >
       <KeyboardAvoidingView
         style={styles.overlay}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <View
           style={[
@@ -140,6 +141,8 @@ export function CorrectionRequestModal({
             </View>
           ) : (
             <ScrollView
+              style={styles.formScroll}
+              contentContainerStyle={styles.formScrollContent}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
@@ -283,6 +286,8 @@ const styles = StyleSheet.create({
     color: Colors.surface,
     fontWeight: "700",
   },
+  formScroll: { flex: 1 },
+  formScrollContent: { paddingBottom: Spacing.md },
   textarea: {
     ...Typography.body,
     color: Colors.text,

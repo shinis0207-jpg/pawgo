@@ -119,10 +119,16 @@ export default function PetsScreen() {
       )}
 
       {/* Add Pet Modal */}
-      <Modal visible={showAddModal} animationType="slide" transparent onRequestClose={() => setShowAddModal(false)}>
+      <Modal
+        visible={showAddModal}
+        animationType="slide"
+        transparent
+        statusBarTranslucent
+        onRequestClose={() => setShowAddModal(false)}
+      >
         <KeyboardAvoidingView
           style={styles.overlay}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
           <View
             style={[
@@ -137,7 +143,11 @@ export default function PetsScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView keyboardShouldPersistTaps="handled">
+            <ScrollView
+              style={styles.formScroll}
+              contentContainerStyle={styles.formScrollContent}
+              keyboardShouldPersistTaps="handled"
+            >
               <View style={styles.formGroup}>
                 <Text style={styles.label}>{t("pets.name")} *</Text>
                 <TextInput
@@ -307,6 +317,8 @@ const styles = StyleSheet.create({
   typeChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + "15" },
   typeChipText: { ...Typography.bodySmall, color: Colors.textSecondary },
   typeChipTextActive: { color: Colors.primary, fontWeight: "600" },
+  formScroll: { flex: 1 },
+  formScrollContent: { paddingBottom: Spacing.md },
   submitBtn: {
     backgroundColor: Colors.primary,
     borderRadius: Radius.md,
