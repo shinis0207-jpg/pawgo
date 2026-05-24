@@ -19,3 +19,24 @@ export const MVP_VISIBLE_CATEGORIES: readonly PlaceCategory[] = [
  * vet / emergency-vet flows re-enter scope (Phase 2+).
  */
 export const MVP_SHOW_EMERGENCY_VET = false;
+
+/**
+ * Which FilterSheet sections are surfaced.
+ *
+ * The MFDS seed (384 Seoul places) carries verified+allowed status only —
+ * indoor_allowed / outdoor_allowed / max_weight_kg are NULL across the
+ * board and has_parking is false across the board. Filtering on those
+ * fields would either return an empty result (parking) or be a no-op
+ * (indoor/outdoor/weight, since the backend doesn't even accept those
+ * query params).
+ *
+ * Hide them until owner_claims / admin input fill in real data, then flip
+ * the relevant flag back to `true` here — no other file needs to change.
+ */
+export const MVP_VISIBLE_FILTERS = {
+  category: true,
+  radius: true,
+  weight: false,
+  indoor_outdoor: false,
+  parking: false,
+} as const;

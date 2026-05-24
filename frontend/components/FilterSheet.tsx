@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { PlaceCategory, PlaceFilter } from "@/types";
 import { Colors, Spacing, Radius, Typography } from "@/constants/theme";
-import { MVP_VISIBLE_CATEGORIES } from "@/constants/mvp";
+import { MVP_VISIBLE_CATEGORIES, MVP_VISIBLE_FILTERS } from "@/constants/mvp";
 
 interface Props {
   visible: boolean;
@@ -72,56 +72,64 @@ export function FilterSheet({ visible, filters, onApply, onClose }: Props) {
               </View>
             </Section>
 
-            <Section label={t("filter.weight_limit")}>
-              <View style={styles.row}>
-                {WEIGHT_OPTIONS.map((opt) => (
+            {MVP_VISIBLE_FILTERS.weight && (
+              <Section label={t("filter.weight_limit")}>
+                <View style={styles.row}>
+                  {WEIGHT_OPTIONS.map((opt) => (
+                    <Chip
+                      key={opt.label}
+                      label={t(opt.label)}
+                      active={local.max_weight_kg === opt.value}
+                      onPress={() => toggle("max_weight_kg", opt.value)}
+                    />
+                  ))}
+                </View>
+              </Section>
+            )}
+
+            {MVP_VISIBLE_FILTERS.indoor_outdoor && (
+              <Section label={t("filter.pet_allowed")}>
+                <View style={styles.row}>
                   <Chip
-                    key={opt.label}
-                    label={t(opt.label)}
-                    active={local.max_weight_kg === opt.value}
-                    onPress={() => toggle("max_weight_kg", opt.value)}
+                    label={t("filter.indoor")}
+                    active={local.allows_indoor === true}
+                    onPress={() => toggle("allows_indoor", true)}
                   />
-                ))}
-              </View>
-            </Section>
-
-            <Section label={t("filter.pet_allowed")}>
-              <View style={styles.row}>
-                <Chip
-                  label={t("filter.indoor")}
-                  active={local.allows_indoor === true}
-                  onPress={() => toggle("allows_indoor", true)}
-                />
-                <Chip
-                  label={t("filter.outdoor")}
-                  active={local.allows_indoor === false}
-                  onPress={() => toggle("allows_indoor", false)}
-                />
-              </View>
-            </Section>
-
-            <Section label={t("filter.radius")}>
-              <View style={styles.row}>
-                {RADIUS_OPTIONS.map((r) => (
                   <Chip
-                    key={r}
-                    label={`${r}km`}
-                    active={local.radius_km === r}
-                    onPress={() => toggle("radius_km", r)}
+                    label={t("filter.outdoor")}
+                    active={local.allows_indoor === false}
+                    onPress={() => toggle("allows_indoor", false)}
                   />
-                ))}
-              </View>
-            </Section>
+                </View>
+              </Section>
+            )}
 
-            <Section label={t("filter.parking")}>
-              <Chip
-                label={t("filter.parking")}
-                active={local.has_parking === true}
-                onPress={() =>
-                  setLocal((p) => ({ ...p, has_parking: p.has_parking ? undefined : true }))
-                }
-              />
-            </Section>
+            {MVP_VISIBLE_FILTERS.radius && (
+              <Section label={t("filter.radius")}>
+                <View style={styles.row}>
+                  {RADIUS_OPTIONS.map((r) => (
+                    <Chip
+                      key={r}
+                      label={`${r}km`}
+                      active={local.radius_km === r}
+                      onPress={() => toggle("radius_km", r)}
+                    />
+                  ))}
+                </View>
+              </Section>
+            )}
+
+            {MVP_VISIBLE_FILTERS.parking && (
+              <Section label={t("filter.parking")}>
+                <Chip
+                  label={t("filter.parking")}
+                  active={local.has_parking === true}
+                  onPress={() =>
+                    setLocal((p) => ({ ...p, has_parking: p.has_parking ? undefined : true }))
+                  }
+                />
+              </Section>
+            )}
           </ScrollView>
 
           <View style={styles.footer}>

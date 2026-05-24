@@ -160,35 +160,56 @@ export default function PlaceDetailScreen() {
             )}
           </InfoCard>
 
-          {/* Pet info */}
-          <InfoCard title="반려동물 정보">
-            <View style={styles.petInfoGrid}>
-              <PetInfoBadge
-                icon="home-outline"
-                label={t("filter.indoor")}
-                active={place.allows_indoor}
-              />
-              <PetInfoBadge
-                icon="leaf-outline"
-                label={t("filter.outdoor")}
-                active={place.allows_outdoor}
-              />
-              <PetInfoBadge
-                icon="car-outline"
-                label={t("filter.parking")}
-                active={place.has_parking}
-              />
-              <PetInfoBadge
-                icon="scale-outline"
-                label={
-                  place.max_weight_kg
-                    ? t("place.kg_limit", { weight: place.max_weight_kg })
-                    : t("place.no_limit")
-                }
-                active
-              />
-            </View>
-          </InfoCard>
+          {/* Pet info — show only fields where we actually have data.
+              Hide the whole card when nothing is known so we never invent
+              defaults like "체중 제한 없음" from a missing value. The block
+              re-appears automatically as owner/admin input fills pet_policy. */}
+          {(() => {
+            const policy = place.pet_policy;
+            const showIndoor = policy?.indoor_allowed != null;
+            const showOutdoor = policy?.outdoor_allowed != null;
+            const showWeight = policy?.max_weight_kg != null;
+            // has_parking is NOT NULL on the backend, but `false` here can mean
+            // either "no parking" or "we don't actually know" (MFDS doesn't say).
+            // Surface only when affirmatively true.
+            const showParking = place.has_parking === true;
+            const anyVisible = showIndoor || showOutdoor || showParking || showWeight;
+            if (!anyVisible) return null;
+            return (
+              <InfoCard title="반려동물 정보">
+                <View style={styles.petInfoGrid}>
+                  {showIndoor && (
+                    <PetInfoBadge
+                      icon="home-outline"
+                      label={t("filter.indoor")}
+                      active={policy!.indoor_allowed === true}
+                    />
+                  )}
+                  {showOutdoor && (
+                    <PetInfoBadge
+                      icon="leaf-outline"
+                      label={t("filter.outdoor")}
+                      active={policy!.outdoor_allowed === true}
+                    />
+                  )}
+                  {showParking && (
+                    <PetInfoBadge
+                      icon="car-outline"
+                      label={t("filter.parking")}
+                      active
+                    />
+                  )}
+                  {showWeight && (
+                    <PetInfoBadge
+                      icon="scale-outline"
+                      label={t("place.kg_limit", { weight: policy!.max_weight_kg })}
+                      active
+                    />
+                  )}
+                </View>
+              </InfoCard>
+            );
+          })()}
 
           {/* Description */}
           {place.description && (

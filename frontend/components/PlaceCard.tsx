@@ -49,19 +49,21 @@ export function PlaceCard({ place, onPress }: Props) {
           )}
         </View>
 
+        {/* Pet info tags — same policy as place detail: data-driven only.
+            "체중 제한 없음" was a misleading default for cards where weight
+            was simply unknown, so it's gone. Tags re-appear automatically
+            when pet_policy values get filled in. */}
         <View style={styles.tags}>
-          {place.allows_indoor && (
+          {place.pet_policy?.indoor_allowed === true && (
             <Tag icon="home-outline" label={t("filter.indoor")} />
           )}
-          {place.allows_outdoor && (
+          {place.pet_policy?.outdoor_allowed === true && (
             <Tag icon="leaf-outline" label={t("filter.outdoor")} />
           )}
-          {place.max_weight_kg ? (
-            <Tag icon="scale-outline" label={`~${place.max_weight_kg}kg`} />
-          ) : (
-            <Tag icon="scale-outline" label={t("place.no_limit")} />
+          {place.pet_policy?.max_weight_kg != null && (
+            <Tag icon="scale-outline" label={`~${place.pet_policy.max_weight_kg}kg`} />
           )}
-          {place.has_parking && (
+          {place.has_parking === true && (
             <Tag icon="car-outline" label={t("filter.parking")} />
           )}
         </View>
