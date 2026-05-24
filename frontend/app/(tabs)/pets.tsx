@@ -9,8 +9,10 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -25,6 +27,7 @@ const PET_TYPES = ["dog", "cat", "bird", "rabbit", "other"];
 export default function PetsScreen() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
+  const insets = useSafeAreaInsets();
   const { pets, isLoading, fetchPets, addPet, deletePet } = usePetStore();
   const [showAddModal, setShowAddModal] = useState(false);
   const [form, setForm] = useState<Partial<Pet>>({ type: "dog" });
@@ -117,8 +120,16 @@ export default function PetsScreen() {
 
       {/* Add Pet Modal */}
       <Modal visible={showAddModal} animationType="slide" transparent onRequestClose={() => setShowAddModal(false)}>
-        <View style={styles.overlay}>
-          <View style={styles.modalSheet}>
+        <KeyboardAvoidingView
+          style={styles.overlay}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <View
+            style={[
+              styles.modalSheet,
+              { paddingBottom: Math.max(insets.bottom, Spacing.md) + Spacing.md },
+            ]}
+          >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{t("pets.add")}</Text>
               <TouchableOpacity onPress={() => setShowAddModal(false)}>
@@ -126,7 +137,7 @@ export default function PetsScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView>
+            <ScrollView keyboardShouldPersistTaps="handled">
               <View style={styles.formGroup}>
                 <Text style={styles.label}>{t("pets.name")} *</Text>
                 <TextInput
@@ -208,7 +219,7 @@ export default function PetsScreen() {
               <Text style={styles.submitBtnText}>{t("common.save")}</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

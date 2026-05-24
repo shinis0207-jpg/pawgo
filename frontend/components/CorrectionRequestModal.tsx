@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import axios from "axios";
 
 import { correctionRequestsApi } from "@/services/api";
@@ -47,6 +48,7 @@ export function CorrectionRequestModal({
   onSubmitted,
 }: Props) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [category, setCategory] = useState<CorrectionRequestCategory | null>(null);
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -106,7 +108,12 @@ export function CorrectionRequestModal({
         style={styles.overlay}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View style={styles.sheet}>
+        <View
+          style={[
+            styles.sheet,
+            { paddingBottom: Math.max(insets.bottom, Spacing.md) + Spacing.md },
+          ]}
+        >
           <View style={styles.header}>
             <Text style={styles.title}>{t("correction.modal_title")}</Text>
             <TouchableOpacity onPress={handleClose} accessibilityLabel={t("common.close")}>
@@ -229,7 +236,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: Radius.lg,
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
-    paddingBottom: Spacing.xl,
     maxHeight: "90%",
   },
   header: {

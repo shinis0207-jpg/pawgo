@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PlaceCategory, PlaceFilter } from "@/types";
 import { Colors, Spacing, Radius, Typography } from "@/constants/theme";
 import { MVP_VISIBLE_CATEGORIES, MVP_VISIBLE_FILTERS } from "@/constants/mvp";
@@ -32,6 +33,7 @@ const RADIUS_OPTIONS = [1, 3, 5, 10, 20];
 
 export function FilterSheet({ visible, filters, onApply, onClose }: Props) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [local, setLocal] = useState<PlaceFilter>(filters);
 
   const toggle = <K extends keyof PlaceFilter>(key: K, value: PlaceFilter[K]) => {
@@ -50,7 +52,12 @@ export function FilterSheet({ visible, filters, onApply, onClose }: Props) {
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <View style={styles.sheet}>
+        <View
+          style={[
+            styles.sheet,
+            { paddingBottom: Math.max(insets.bottom, Spacing.md) + Spacing.lg },
+          ]}
+        >
           <View style={styles.header}>
             <Text style={styles.title}>{t("filter.title")}</Text>
             <TouchableOpacity onPress={onClose}>
@@ -185,7 +192,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: Radius.xl,
     borderTopRightRadius: Radius.xl,
     maxHeight: "80%",
-    paddingBottom: Spacing.xl,
   },
   header: {
     flexDirection: "row",
