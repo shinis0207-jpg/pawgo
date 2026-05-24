@@ -11,6 +11,10 @@ const CATEGORY_COLORS: Record<MapMarker["category"], string> = {
   hospital: "#EF4444",
 };
 
+// Selected-pin override. Tailwind blue-500 — chosen to stand out against the
+// warm category colors above so the user can find the active pin at a glance.
+const SELECTED_PIN_COLOR = "#3B82F6";
+
 function buildMapHtml(
   apiKey: string,
   lat: number,
@@ -41,31 +45,14 @@ function buildMapHtml(
       box-shadow: 0 2px 6px rgba(0,0,0,0.35);
       cursor: pointer;
     }
-    .info-bubble {
-      background: white;
-      border-radius: 8px;
-      padding: 7px 13px;
-      font-size: 12px;
-      font-weight: 700;
-      font-family: -apple-system, sans-serif;
-      white-space: nowrap;
-      max-width: 170px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.22);
-      position: relative;
-      color: #111;
-    }
-    .info-bubble::after {
-      content: '';
-      position: absolute;
-      bottom: -7px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 0; height: 0;
-      border-left: 7px solid transparent;
-      border-right: 7px solid transparent;
-      border-top: 7px solid white;
+    /* Selected-pin treatment. Larger + thicker border so the active pin is
+       obvious among the warm-toned category pins. The background-color
+       inline-style is overridden per-marker from RN with SELECTED_PIN_COLOR. */
+    .custom-pin.selected {
+      width: 38px; height: 38px;
+      border-width: 3px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.45);
+      z-index: 10;
     }
   </style>
 </head>
@@ -76,7 +63,6 @@ function buildMapHtml(
     var mapLoaded = false;
     var pendingMarkers = null;
     var currentMarkers = [];
-    var currentTooltip = null;
 
     kakao.maps.load(function() {
       var container = document.getElementById('map');
@@ -93,9 +79,9 @@ function buildMapHtml(
         sendToRN({ type: 'regionChange', lat: c.getLat(), lng: c.getLng() });
       });
 
-      // 지도 빈 곳 클릭 → 말풍선 닫기
+      // 지도 빈 곳 클릭 → RN에 알려서 미니 카드를 닫게 함
       kakao.maps.event.addListener(map, 'click', function() {
-        hideTooltip();
+        sendToRN({ type: 'mapClick' });
       });
 
       // markers are never inlined; they arrive via injectJavaScript after the
@@ -129,44 +115,28 @@ function buildMapHtml(
       // 기존 마커 제거
       currentMarkers.forEach(function(item) { item.overlay.setMap(null); });
       currentMarkers = [];
-      hideTooltip();
 
       markersData.forEach(function(data) {
         var position = new kakao.maps.LatLng(data.latitude, data.longitude);
-        var content = '<div class="custom-pin" data-marker-id="' + data.id
-          + '" style="background:' + data.color + ';"></div>';
+        var cls = data.highlighted ? 'custom-pin selected' : 'custom-pin';
+        var bg = data.highlighted ? '${SELECTED_PIN_COLOR}' : data.color;
+        var content = '<div class="' + cls + '" data-marker-id="' + data.id
+          + '" style="background:' + bg + ';"></div>';
 
         var overlay = new kakao.maps.CustomOverlay({
           position: position,
           content: content,
           yAnchor: 1,
-          zIndex: 3
+          zIndex: data.highlighted ? 5 : 3
         });
         overlay.setMap(map);
         currentMarkers.push({ overlay: overlay, data: data, position: position });
       });
     }
 
-    function showTooltip(data, position) {
-      hideTooltip();
-      var el = document.createElement('div');
-      el.className = 'info-bubble';
-      el.textContent = data.title;
-
-      currentTooltip = new kakao.maps.CustomOverlay({
-        content: el,
-        position: position,
-        yAnchor: 2.3,
-        zIndex: 10
-      });
-      currentTooltip.setMap(map);
-    }
-
-    function hideTooltip() {
-      if (currentTooltip) { currentTooltip.setMap(null); currentTooltip = null; }
-    }
-
-    // 마커 DOM이 추가되면 클릭 이벤트 바인딩
+    // 마커 DOM이 추가되면 클릭 이벤트 바인딩 — RN으로만 알려주고, 강조/
+    // 미니 카드는 모두 RN 측이 처리한다. (예전엔 여기서 말풍선까지 띄웠지만
+    // 미니 카드가 그 자리를 대체하므로 제거.)
     var observer = new MutationObserver(function() {
       document.querySelectorAll('.custom-pin:not([data-bound])').forEach(function(el) {
         el.setAttribute('data-bound', 'true');
@@ -177,7 +147,6 @@ function buildMapHtml(
             return String(m.data.id) === String(markerId);
           });
           if (!item) return;
-          showTooltip(item.data, item.position);
           sendToRN({ type: 'markerPress', marker: item.data });
         });
       });
@@ -189,7 +158,7 @@ function buildMapHtml(
 }
 
 const KakaoMapProvider = forwardRef<WebView, MapViewProps>(function KakaoMapProvider(
-  { initialLatitude, initialLongitude, markers, onMarkerPress, onRegionChange },
+  { initialLatitude, initialLongitude, markers, onMarkerPress, onRegionChange, onMapPress },
   forwardedRef
 ) {
   const webViewRef = useRef<WebView>(null);
@@ -214,6 +183,7 @@ const KakaoMapProvider = forwardRef<WebView, MapViewProps>(function KakaoMapProv
       const markersWithColor = markerList.map((m) => ({
         ...m,
         color: CATEGORY_COLORS[m.category] ?? "#FF6B35",
+        highlighted: m.highlighted ?? false,
       }));
       webViewRef.current?.injectJavaScript(
         `updateMarkers(${JSON.stringify(markersWithColor)}); true;`
@@ -238,9 +208,10 @@ const KakaoMapProvider = forwardRef<WebView, MapViewProps>(function KakaoMapProv
         const msg = JSON.parse(event.nativeEvent.data);
         if (msg.type === "markerPress") onMarkerPress(msg.marker);
         if (msg.type === "regionChange") onRegionChange(msg.lat, msg.lng);
+        if (msg.type === "mapClick") onMapPress?.();
       } catch {}
     },
-    [onMarkerPress, onRegionChange]
+    [onMarkerPress, onRegionChange, onMapPress]
   );
 
   // html is now ONLY a function of (apiKey, initialLatitude, initialLongitude).

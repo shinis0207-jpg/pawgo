@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { useLocation } from "@/hooks/useLocation";
 import { useNearbyPlaces, useEmergencyVets } from "@/hooks/usePlaces";
 import { PlaceCard } from "@/components/PlaceCard";
 import { FilterSheet } from "@/components/FilterSheet";
+import { MiniPlaceCard } from "@/components/MiniPlaceCard";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Place, PlaceCategory, PlaceFilter, Coordinates } from "@/types";
 import { Colors, Spacing, Radius, Typography } from "@/constants/theme";
@@ -53,13 +54,14 @@ const CATEGORY_MAP: Record<PlaceCategory, MapMarker["category"]> = {
   vet: "hospital",
 };
 
-function toMapMarkers(places: Place[]): MapMarker[] {
+function toMapMarkers(places: Place[], selectedId: number | null): MapMarker[] {
   return places.map((p) => ({
     id: String(p.id),
     latitude: p.latitude,
     longitude: p.longitude,
     title: p.name,
     category: CATEGORY_MAP[p.category],
+    highlighted: p.id === selectedId,
   }));
 }
 
@@ -78,6 +80,8 @@ export default function MapScreen() {
   const [mapCenter, setMapCenter] = useState<Coordinates | null>(null);
   // "내 위치" 클릭 시 증가 — MapView의 key로 사용해 WebView 재마운트 → 사용자 위치로 카메라 리셋
   const [recenterSeq, setRecenterSeq] = useState(0);
+  // 핀 탭 → 미니 카드. 핀의 marker.id는 string이지만 Place.id는 number라 number로 저장.
+  const [selectedPlaceId, setSelectedPlaceId] = useState<number | null>(null);
 
   const searchCenter = searchOverride ?? location;
   const activeFilters = selectedCategory ? { ...filters, category: selectedCategory } : filters;
@@ -85,7 +89,17 @@ export default function MapScreen() {
   const { data: emergencyVets } = useEmergencyVets(searchCenter);
 
   const places = showEmergency ? (emergencyVets ?? []) : (data?.items ?? []);
-  const mapMarkers = toMapMarkers(places);
+  const mapMarkers = toMapMarkers(places, selectedPlaceId);
+  const selectedPlace = selectedPlaceId != null
+    ? places.find((p) => p.id === selectedPlaceId) ?? null
+    : null;
+
+  // 화면 컨텍스트(카테고리·긴급·재센터·재검색)가 바뀌면 미니 카드는 stale.
+  // 보수적으로 명시한 트리거만 해제하고, 단순 페이지네이션이나 위치 미세
+  // 변화에는 카드를 유지한다.
+  useEffect(() => {
+    setSelectedPlaceId(null);
+  }, [selectedCategory, showEmergency, recenterSeq, searchOverride]);
 
   // 지도 중심이 검색 좌표에서 충분히 떨어졌는지
   const showResearchBtn =
@@ -95,12 +109,17 @@ export default function MapScreen() {
     !!location && !!searchOverride && haversineKm(location, searchOverride) >= RESEARCH_THRESHOLD_KM;
 
   // ── MapView 콜백 ────────────────────────────────────────────────────────
-  const handleMarkerPress = useCallback(
-    (marker: MapMarker) => {
-      router.push(`/place/${marker.id}`);
-    },
-    [router]
-  );
+  // 핀을 누르면 바로 상세로 가지 않고 미니 카드를 띄운다. 상세 진입은 카드의
+  // [상세보기] 버튼 또는 카드 본문 탭에서 router.push로 일어난다.
+  const handleMarkerPress = useCallback((marker: MapMarker) => {
+    const id = Number(marker.id);
+    if (!Number.isNaN(id)) setSelectedPlaceId(id);
+  }, []);
+
+  // 지도 빈 곳 탭 → 미니 카드 닫기. WebView 측에서 'mapClick' 메시지를 보낸다.
+  const handleMapPress = useCallback(() => {
+    setSelectedPlaceId(null);
+  }, []);
 
   const handleRegionChange = useCallback((lat: number, lng: number) => {
     setMapCenter({ latitude: lat, longitude: lng });
@@ -134,6 +153,7 @@ export default function MapScreen() {
             markers={mapMarkers}
             onMarkerPress={handleMarkerPress}
             onRegionChange={handleRegionChange}
+            onMapPress={handleMapPress}
           />
         </ErrorBoundary>
 
@@ -229,6 +249,16 @@ export default function MapScreen() {
           ))}
           <View style={{ height: Spacing.xl }} />
         </ScrollView>
+
+        {/* 핀 탭 → 미니 카드. 리스트 영역 위에 floating으로 떠서 리스트 일부를
+            잠깐 가린다. listContainer 안의 absolute라 카테고리바·지도는 안 가린다. */}
+        {selectedPlace && (
+          <MiniPlaceCard
+            place={selectedPlace}
+            onDetail={() => router.push(`/place/${selectedPlace.id}`)}
+            onClose={() => setSelectedPlaceId(null)}
+          />
+        )}
       </View>
 
       <FilterSheet
