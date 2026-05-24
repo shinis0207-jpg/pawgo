@@ -51,7 +51,10 @@
   },
   "search": {
     "results_count": "{{count}} results",
-    "results_for": "{{count}} results for \"{{query}}\""
+    "results_for": "{{count}} results for \"{{query}}\"",
+    "hint": "Search by place name or address. Pet-friendliness is shown when verified.",
+    "empty_no_query_match": "No results for \"{{query}}\". Try a partial name.",
+    "empty_no_query": "No places to show nearby."
   },
   "categories": {
     "accommodation": "Hotels",

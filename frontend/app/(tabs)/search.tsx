@@ -42,6 +42,10 @@ export default function SearchScreen() {
 
   const debouncedQuery = useDebounced(query.trim(), 300);
 
+  // TODO(policy 2.5): once owner_claims / user reports introduce rows with
+  // verification_status='unknown', send include_unverified=true here AND
+  // surface a "동반 정보 없음" label on PlaceCard for those rows. Today every
+  // row is official_verified, so the flag would be a no-op.
   const {
     data,
     isLoading,
@@ -100,6 +104,15 @@ export default function SearchScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Hint — only before the user starts typing. The search is a name/address
+          substring match, so "카페" / "식당" return fewer hits than category
+          intuition suggests. This nudges users toward the right mental model. */}
+      {!debouncedQuery && (
+        <View style={styles.hint}>
+          <Text style={styles.hintText}>{t("search.hint")}</Text>
+        </View>
+      )}
+
       {/* Results header */}
       {!isLoading && total > 0 && (
         <View style={styles.resultHeader}>
@@ -129,7 +142,11 @@ export default function SearchScreen() {
           ListEmptyComponent={
             <View style={styles.center}>
               <Ionicons name="search-outline" size={48} color={Colors.textLight} />
-              <Text style={styles.emptyText}>{t("map.no_places")}</Text>
+              <Text style={styles.emptyText}>
+                {debouncedQuery
+                  ? t("search.empty_no_query_match", { query: debouncedQuery })
+                  : t("search.empty_no_query")}
+              </Text>
             </View>
           }
           onEndReached={() => {
@@ -211,6 +228,15 @@ const styles = StyleSheet.create({
     color: Colors.surface,
     fontWeight: "700",
     fontSize: 9,
+  },
+  hint: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.sm,
+  },
+  hintText: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    lineHeight: 16,
   },
   resultHeader: {
     paddingHorizontal: Spacing.lg,
