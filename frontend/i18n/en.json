@@ -173,6 +173,7 @@
     "category_label": "What's incorrect?",
     "description_label": "Describe the issue",
     "description_placeholder": "e.g. Dogs aren't allowed inside — staff told us during our last visit.",
+    "description_min_hint": "At least {{count}} characters",
     "submit": "Submit",
     "disclaimer": "Submissions are applied only after admin review. Nothing changes instantly.",
     "success_title": "Submitted",

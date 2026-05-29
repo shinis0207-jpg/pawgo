@@ -198,9 +198,31 @@ export function CorrectionRequestModal({
                 maxLength={MAX_DESCRIPTION}
                 textAlignVertical="top"
               />
-              <Text style={styles.charCount}>
-                {trimmed.length} / {MAX_DESCRIPTION}
-              </Text>
+              {/* Hint (left) appears only while below MIN_DESCRIPTION so the
+                  user understands why submit is disabled. Counter (right) is
+                  always visible; its color tiers up as the user approaches
+                  MAX_DESCRIPTION (≥80% warning, =100% error). */}
+              <View style={styles.charRow}>
+                {trimmed.length < MIN_DESCRIPTION ? (
+                  <Text style={styles.minHint}>
+                    {t("correction.description_min_hint", { count: MIN_DESCRIPTION })}
+                  </Text>
+                ) : (
+                  <View />
+                )}
+                <Text
+                  style={[
+                    styles.charCount,
+                    trimmed.length >= MAX_DESCRIPTION
+                      ? styles.charCountError
+                      : trimmed.length >= MAX_DESCRIPTION * 0.8
+                      ? styles.charCountWarning
+                      : null,
+                  ]}
+                >
+                  {trimmed.length} / {MAX_DESCRIPTION}
+                </Text>
+              </View>
 
               {error && <Text style={styles.errorText}>{error}</Text>}
 
@@ -316,12 +338,22 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     minHeight: 120,
   },
+  charRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  minHint: {
+    ...Typography.caption,
+    color: Colors.warning,
+  },
   charCount: {
     ...Typography.caption,
     color: Colors.textLight,
-    alignSelf: "flex-end",
-    marginTop: 4,
   },
+  charCountWarning: { color: Colors.warning },
+  charCountError: { color: Colors.error },
   errorText: {
     ...Typography.bodySmall,
     color: Colors.error,

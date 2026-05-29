@@ -173,6 +173,7 @@
     "category_label": "어떤 정보가 틀렸나요?",
     "description_label": "자세히 설명해주세요",
     "description_placeholder": "예: 강아지 입장이 안 된다고 합니다. 지난주 방문 시 직원분이 안내해주셨어요.",
+    "description_min_hint": "최소 {{count}}자 이상 입력해주세요",
     "submit": "제출하기",
     "disclaimer": "제출된 내용은 관리자 검토 후 반영됩니다. 즉시 변경되지 않습니다.",
     "success_title": "제출 완료",
