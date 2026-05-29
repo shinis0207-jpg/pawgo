@@ -291,6 +291,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: Spacing.lg,
+    flexShrink: 0,
   },
   modalTitle: { ...Typography.h2, color: Colors.text },
   formGroup: { marginBottom: Spacing.md },
@@ -317,7 +318,11 @@ const styles = StyleSheet.create({
   typeChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primary + "15" },
   typeChipText: { ...Typography.bodySmall, color: Colors.textSecondary },
   typeChipTextActive: { color: Colors.primary, fontWeight: "600" },
-  formScroll: { flex: 1 },
+  // flexShrink:1 (not flex:1) so the ScrollView yields height to its non-
+  // shrinkable siblings (header/submit) instead of collapsing to 0 when the
+  // sheet has no explicit height. When the content overflows the sheet's
+  // maxHeight cap, the ScrollView shrinks and scrolling kicks in.
+  formScroll: { flexShrink: 1 },
   formScrollContent: { paddingBottom: Spacing.md },
   submitBtn: {
     backgroundColor: Colors.primary,
@@ -325,6 +330,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     alignItems: "center",
     marginTop: Spacing.md,
+    flexShrink: 0,
   },
   submitBtnDisabled: { opacity: 0.5 },
   submitBtnText: { ...Typography.button, color: Colors.surface },

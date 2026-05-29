@@ -246,6 +246,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: Spacing.md,
+    flexShrink: 0,
   },
   title: { ...Typography.h3, color: Colors.text },
   placeContext: {
@@ -286,7 +287,11 @@ const styles = StyleSheet.create({
     color: Colors.surface,
     fontWeight: "700",
   },
-  formScroll: { flex: 1 },
+  // flexShrink:1 (not flex:1) so the ScrollView yields height to its non-
+  // shrinkable sibling (header) instead of collapsing to 0 when the sheet
+  // has no explicit height. Submit button lives inside the ScrollView in
+  // this modal, so only the header needs flexShrink:0 above.
+  formScroll: { flexShrink: 1 },
   formScrollContent: { paddingBottom: Spacing.md },
   textarea: {
     ...Typography.body,
