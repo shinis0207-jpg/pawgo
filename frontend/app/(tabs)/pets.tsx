@@ -126,8 +126,14 @@ export default function PetsScreen() {
         statusBarTranslucent
         onRequestClose={() => setShowAddModal(false)}
       >
+        {/* Backdrop sits OUTSIDE the KAV so the dim background covers the full
+            screen even when the KAV shrinks for the keyboard. Previously the
+            dim color lived on KAV itself, so Android behavior="height" shrank
+            the backdrop along with the KAV and the screen underneath leaked
+            through above the keyboard. */}
+        <View style={styles.backdrop} pointerEvents="none" />
         <KeyboardAvoidingView
-          style={styles.overlay}
+          style={styles.kavContainer}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
           <View
@@ -278,7 +284,15 @@ const styles = StyleSheet.create({
   },
   emptyAddText: { ...Typography.button, color: Colors.surface },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: Spacing.md },
-  overlay: { flex: 1, backgroundColor: Colors.overlay, justifyContent: "flex-end" },
+  backdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: Colors.overlay,
+  },
+  kavContainer: { flex: 1, justifyContent: "flex-end" },
   modalSheet: {
     backgroundColor: Colors.surface,
     borderTopLeftRadius: Radius.xl,

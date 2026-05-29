@@ -105,8 +105,14 @@ export function CorrectionRequestModal({
       statusBarTranslucent
       onRequestClose={handleClose}
     >
+      {/* Backdrop sits OUTSIDE the KAV so the dim background covers the full
+          screen even when the KAV shrinks for the keyboard. Previously the
+          dim color lived on KAV itself, so Android behavior="height" shrank
+          the backdrop along with the KAV and the place-detail screen
+          underneath leaked through above the keyboard. */}
+      <View style={styles.backdrop} pointerEvents="none" />
       <KeyboardAvoidingView
-        style={styles.overlay}
+        style={styles.kavContainer}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <View
@@ -228,9 +234,16 @@ export function CorrectionRequestModal({
 
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
+  backdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: Colors.overlay,
+  },
+  kavContainer: {
+    flex: 1,
     justifyContent: "flex-end",
   },
   sheet: {
