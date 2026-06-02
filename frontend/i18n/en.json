@@ -104,6 +104,7 @@
   "pets": {
     "title": "My Pets",
     "add": "Add Pet",
+    "edit": "Edit Pet",
     "name": "Name",
     "type": "Type",
     "breed": "Breed",

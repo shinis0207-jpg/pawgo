@@ -10,6 +10,13 @@ interface Props {
   pet: Pet;
   onPress?: () => void;
   selected?: boolean;
+  // Optional action handlers. Callsites that own a Pet (e.g. the pets list
+  // screen) pass these to render edit / delete affordances on the right edge.
+  // Callsites that use PetCard as a pure selectable chip (future review-write
+  // flow, correction-with-pet flow) omit them — combined with the !selected
+  // guard below, the actions never compete with the selection UI.
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 const PET_ICONS: Record<string, string> = {
@@ -20,7 +27,7 @@ const PET_ICONS: Record<string, string> = {
   other: "🐾",
 };
 
-export function PetCard({ pet, onPress, selected }: Props) {
+export function PetCard({ pet, onPress, selected, onEdit, onDelete }: Props) {
   const { t } = useTranslation();
 
   const getAge = () => {
@@ -59,11 +66,36 @@ export function PetCard({ pet, onPress, selected }: Props) {
         )}
       </View>
 
-      {selected && (
+      {selected ? (
         <View style={styles.checkmark}>
           <Ionicons name="checkmark-circle" size={22} color={Colors.primary} />
         </View>
-      )}
+      ) : (onEdit || onDelete) ? (
+        <View style={styles.actions}>
+          {onEdit && (
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={onEdit}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="edit"
+            >
+              <Ionicons name="create-outline" size={20} color={Colors.textSecondary} />
+            </TouchableOpacity>
+          )}
+          {onDelete && (
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={onDelete}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="delete"
+            >
+              <Ionicons name="trash-outline" size={20} color={Colors.error} />
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : null}
     </TouchableOpacity>
   );
 }
@@ -129,5 +161,14 @@ const styles = StyleSheet.create({
   },
   checkmark: {
     marginLeft: "auto",
+  },
+  actions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginLeft: "auto",
+  },
+  actionBtn: {
+    padding: Spacing.xs,
   },
 });

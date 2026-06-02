@@ -28,20 +28,53 @@ export default function PetsScreen() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const insets = useSafeAreaInsets();
-  const { pets, isLoading, fetchPets, addPet, deletePet } = usePetStore();
+  const { pets, isLoading, fetchPets, addPet, updatePet, deletePet } = usePetStore();
   const [showAddModal, setShowAddModal] = useState(false);
   const [form, setForm] = useState<Partial<Pet>>({ type: "dog" });
+  // null = "add" mode (form starts blank). number = "edit" mode for that pet id.
+  const [editingPetId, setEditingPetId] = useState<number | null>(null);
 
   useEffect(() => {
     if (user) fetchPets();
   }, [user]);
 
-  const handleAdd = async () => {
+  const closeModal = () => {
+    setShowAddModal(false);
+    setEditingPetId(null);
+    setForm({ type: "dog" });
+  };
+
+  const openAddModal = () => {
+    setEditingPetId(null);
+    setForm({ type: "dog" });
+    setShowAddModal(true);
+  };
+
+  const openEditModal = (pet: Pet) => {
+    setEditingPetId(pet.id);
+    // Seed the form from the existing pet. Only the editable fields go in —
+    // server-managed metadata (id, user_id, created_at, photo_url) is excluded
+    // so updatePet's PATCH body stays minimal.
+    setForm({
+      name: pet.name,
+      type: pet.type,
+      breed: pet.breed ?? undefined,
+      weight_kg: pet.weight_kg ?? undefined,
+      chip_id: pet.chip_id ?? undefined,
+      notes: pet.notes ?? undefined,
+    });
+    setShowAddModal(true);
+  };
+
+  const handleSubmit = async () => {
     if (!form.name || !form.type) return;
     try {
-      await addPet(form);
-      setShowAddModal(false);
-      setForm({ type: "dog" });
+      if (editingPetId != null) {
+        await updatePet(editingPetId, form);
+      } else {
+        await addPet(form);
+      }
+      closeModal();
     } catch {
       Alert.alert(t("common.error"), t("common.error"));
     }
@@ -56,7 +89,12 @@ export default function PetsScreen() {
         {
           text: t("common.delete"),
           style: "destructive",
-          onPress: () => deletePet(pet.id),
+          onPress: () => {
+            // If the user is mid-edit on the same pet, close the modal so the
+            // form doesn't keep editing a deleted row.
+            if (editingPetId === pet.id) closeModal();
+            deletePet(pet.id);
+          },
         },
       ]
     );
@@ -80,7 +118,7 @@ export default function PetsScreen() {
         <Text style={styles.title}>{t("pets.title")}</Text>
         <TouchableOpacity
           style={styles.addBtn}
-          onPress={() => setShowAddModal(true)}
+          onPress={openAddModal}
         >
           <Ionicons name="add" size={20} color={Colors.surface} />
           <Text style={styles.addBtnText}>{t("pets.add")}</Text>
@@ -97,34 +135,33 @@ export default function PetsScreen() {
               <Text style={styles.emptyTitle}>{t("pets.no_pets")}</Text>
               <TouchableOpacity
                 style={styles.emptyAddBtn}
-                onPress={() => setShowAddModal(true)}
+                onPress={openAddModal}
               >
                 <Text style={styles.emptyAddText}>{t("pets.add")}</Text>
               </TouchableOpacity>
             </View>
           ) : (
             pets.map((pet) => (
-              <View key={pet.id} style={styles.petRow}>
-                <PetCard pet={pet} />
-                <TouchableOpacity
-                  style={styles.deleteBtn}
-                  onPress={() => handleDelete(pet)}
-                >
-                  <Ionicons name="trash-outline" size={18} color={Colors.error} />
-                </TouchableOpacity>
-              </View>
+              <PetCard
+                key={pet.id}
+                pet={pet}
+                onEdit={() => openEditModal(pet)}
+                onDelete={() => handleDelete(pet)}
+              />
             ))
           )}
         </ScrollView>
       )}
 
-      {/* Add Pet Modal */}
+      {/* Add / Edit Pet Modal — single modal with mode branching driven by
+          editingPetId. Add mode (null) clears the form; edit mode seeds it
+          from the existing pet. handleSubmit dispatches to addPet vs updatePet.*/}
       <Modal
         visible={showAddModal}
         animationType="slide"
         transparent
         statusBarTranslucent
-        onRequestClose={() => setShowAddModal(false)}
+        onRequestClose={closeModal}
       >
         {/* Backdrop sits OUTSIDE the KAV so the dim background covers the full
             screen even when the KAV shrinks for the keyboard. Previously the
@@ -143,8 +180,10 @@ export default function PetsScreen() {
             ]}
           >
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{t("pets.add")}</Text>
-              <TouchableOpacity onPress={() => setShowAddModal(false)}>
+              <Text style={styles.modalTitle}>
+                {editingPetId != null ? t("pets.edit") : t("pets.add")}
+              </Text>
+              <TouchableOpacity onPress={closeModal}>
                 <Ionicons name="close" size={24} color={Colors.text} />
               </TouchableOpacity>
             </View>
@@ -229,7 +268,7 @@ export default function PetsScreen() {
 
             <TouchableOpacity
               style={[styles.submitBtn, !form.name && styles.submitBtnDisabled]}
-              onPress={handleAdd}
+              onPress={handleSubmit}
               disabled={!form.name}
             >
               <Text style={styles.submitBtnText}>{t("common.save")}</Text>
@@ -266,12 +305,6 @@ const styles = StyleSheet.create({
   addBtnText: { ...Typography.button, color: Colors.surface },
   loader: { marginTop: Spacing.xxl },
   list: { padding: Spacing.md },
-  petRow: { flexDirection: "row", alignItems: "center" },
-  deleteBtn: {
-    padding: Spacing.sm,
-    marginLeft: Spacing.sm,
-    marginBottom: Spacing.sm,
-  },
   empty: { alignItems: "center", paddingVertical: Spacing.xxl, gap: Spacing.md },
   emptyEmoji: { fontSize: 64 },
   emptyTitle: { ...Typography.h3, color: Colors.textSecondary },
