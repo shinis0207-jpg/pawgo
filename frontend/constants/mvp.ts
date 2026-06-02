@@ -21,6 +21,15 @@ export const MVP_VISIBLE_CATEGORIES: readonly PlaceCategory[] = [
 export const MVP_SHOW_EMERGENCY_VET = false;
 
 /**
+ * Review system is fully implemented in code (reviewsApi, ReviewCard,
+ * write-review button, rating row, no-reviews empty state) but not in
+ * Phase 1 MVP scope. Hide it so we don't ship a "리뷰 작성" button that
+ * routes to nothing and a "0.0 ★★★★★ (0개 리뷰)" line that the user
+ * can't act on. Flip to `true` when Phase 3 review flow lands.
+ */
+export const MVP_SHOW_REVIEWS = false;
+
+/**
  * Which FilterSheet sections are surfaced.
  *
  * The MFDS seed (384 Seoul places) carries verified+allowed status only —

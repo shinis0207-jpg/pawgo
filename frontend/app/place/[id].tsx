@@ -24,6 +24,7 @@ import { CategoryPlaceholder } from "@/components/CategoryPlaceholder";
 import { VerificationBadge } from "@/components/VerificationBadge";
 import { CorrectionRequestModal } from "@/components/CorrectionRequestModal";
 import { useAuthStore } from "@/store/authStore";
+import { MVP_SHOW_REVIEWS } from "@/constants/mvp";
 
 export default function PlaceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -35,10 +36,14 @@ export default function PlaceDetailScreen() {
   const token = useAuthStore((s) => s.token);
   const [showCorrectionModal, setShowCorrectionModal] = useState(false);
 
+  // Review fetch is wired up but gated behind MVP_SHOW_REVIEWS — Phase 1 ships
+  // without a review system, so skip the request entirely (no spinner, no
+  // backend call) when the flag is off. Flip MVP_SHOW_REVIEWS to true in
+  // Phase 3 to re-enable both the query and the UI sections below.
   const { data: reviews } = useQuery({
     queryKey: ["reviews", placeId],
     queryFn: () => reviewsApi.listForPlace(placeId).then((r) => r.data),
-    enabled: !!placeId,
+    enabled: MVP_SHOW_REVIEWS && !!placeId,
   });
 
   if (isLoading || !place) {
@@ -115,21 +120,25 @@ export default function PlaceDetailScreen() {
             </View>
           </View>
 
-          {/* Rating */}
-          <View style={styles.ratingRow}>
-            <View style={styles.stars}>
-              {[1, 2, 3, 4, 5].map((star) => (
-                <Ionicons
-                  key={star}
-                  name={star <= Math.round(place.rating) ? "star" : "star-outline"}
-                  size={18}
-                  color={Colors.warning}
-                />
-              ))}
+          {/* Rating — hidden in MVP because place.rating / review_count are
+              always 0 until Phase 3 reviews ship; showing "★★★★★ 0.0 (0개 리뷰)"
+              implies user action that doesn't exist yet. */}
+          {MVP_SHOW_REVIEWS && (
+            <View style={styles.ratingRow}>
+              <View style={styles.stars}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Ionicons
+                    key={star}
+                    name={star <= Math.round(place.rating) ? "star" : "star-outline"}
+                    size={18}
+                    color={Colors.warning}
+                  />
+                ))}
+              </View>
+              <Text style={styles.ratingValue}>{place.rating.toFixed(1)}</Text>
+              <Text style={styles.reviewCount}>({place.review_count}개 리뷰)</Text>
             </View>
-            <Text style={styles.ratingValue}>{place.rating.toFixed(1)}</Text>
-            <Text style={styles.reviewCount}>({place.review_count}개 리뷰)</Text>
-          </View>
+          )}
 
           {/* Action buttons */}
           <View style={styles.actions}>
@@ -219,26 +228,30 @@ export default function PlaceDetailScreen() {
             </View>
           )}
 
-          {/* Reviews */}
-          <View style={styles.reviewSection}>
-            <View style={styles.reviewHeader}>
-              <Text style={styles.sectionTitle}>{t("place.reviews")}</Text>
-              <TouchableOpacity style={styles.writeReviewBtn}>
-                <Ionicons name="pencil-outline" size={14} color={Colors.primary} />
-                <Text style={styles.writeReviewText}>{t("place.write_review")}</Text>
-              </TouchableOpacity>
-            </View>
-
-            {(reviews ?? []).length === 0 ? (
-              <View style={styles.noReviews}>
-                <Text style={styles.noReviewsText}>{t("place.no_reviews")}</Text>
+          {/* Reviews — hidden in MVP. The whole section (header, write-review
+              button, empty state, list) lives behind MVP_SHOW_REVIEWS so we
+              don't ship a "리뷰 작성" button that routes to nothing. */}
+          {MVP_SHOW_REVIEWS && (
+            <View style={styles.reviewSection}>
+              <View style={styles.reviewHeader}>
+                <Text style={styles.sectionTitle}>{t("place.reviews")}</Text>
+                <TouchableOpacity style={styles.writeReviewBtn}>
+                  <Ionicons name="pencil-outline" size={14} color={Colors.primary} />
+                  <Text style={styles.writeReviewText}>{t("place.write_review")}</Text>
+                </TouchableOpacity>
               </View>
-            ) : (
-              (reviews ?? []).map((review) => (
-                <ReviewCard key={review.id} review={review} />
-              ))
-            )}
-          </View>
+
+              {(reviews ?? []).length === 0 ? (
+                <View style={styles.noReviews}>
+                  <Text style={styles.noReviewsText}>{t("place.no_reviews")}</Text>
+                </View>
+              ) : (
+                (reviews ?? []).map((review) => (
+                  <ReviewCard key={review.id} review={review} />
+                ))
+              )}
+            </View>
+          )}
 
           {/* Report incorrect info — entry point for the correction-request flow. */}
           <TouchableOpacity
