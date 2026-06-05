@@ -195,7 +195,7 @@
     "status": {
       "pending": "Pending",
       "reviewing": "Reviewing",
-      "approved": "Approved",
+      "approved": "Resolved",
       "rejected": "Rejected"
     },
     "my_list_title": "My corrections",
@@ -215,5 +215,37 @@
     "note_supplementary": "FYI",
     "note_call_first": "Call ahead recommended",
     "note_check_before_visit": "Verify before visiting"
+  },
+  "admin": {
+    "section_title": "Admin",
+    "menu_title": "Review correction requests",
+    "queue_title": "Correction queue",
+    "empty_queue": "No correction requests to review",
+    "load_error": "Couldn't load the queue",
+    "retry": "Retry",
+    "detail_title": "Correction request",
+    "submitted_at": "Submitted",
+    "submitted_by": "Submitted by",
+    "anonymous": "Anonymous",
+    "user_label": "User #{{id}}",
+    "description_label": "User description",
+    "requested_info_label": "Requested changes",
+    "requested_info_empty": "No data change requested (notification only)",
+    "current_info_label": "User-reported current state",
+    "approve": "Approve",
+    "reject": "Reject",
+    "confirm_approve_title": "Approve this request?",
+    "confirm_approve_body": "Approving applies the changes to the place immediately.",
+    "confirm_approve_cta": "Approve",
+    "reject_modal_title": "Rejection reason",
+    "reject_modal_body": "Optional note shown to the user.",
+    "reject_modal_placeholder": "e.g. The same correction was already applied.",
+    "reject_cta": "Reject",
+    "submitting": "Submitting…",
+    "success_approved": "Request approved.",
+    "success_rejected": "Request rejected.",
+    "error_already_resolved": "This request has already been resolved.",
+    "error_validation": "Cannot apply the requested changes — please check the fields.",
+    "error_generic": "Submission failed. Please try again in a moment."
   }
 }

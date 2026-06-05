@@ -1,5 +1,9 @@
 export type Language = "ko" | "en" | "ja" | "zh";
 
+// Mirrors backend/app/models/user.py::UserRole. Admin role is granted via the
+// ADMIN_EMAILS allowlist at register/login time — see services/auth.py.
+export type UserRole = "user" | "admin";
+
 export type PlaceCategory = "accommodation" | "restaurant" | "cafe" | "park" | "vet";
 
 // Phase 2A backend enum — DB stores lowercase; matches values_callable on the
@@ -93,6 +97,9 @@ export interface User {
   language: Language;
   profile_image_url: string | null;
   is_verified: boolean;
+  // Backend already includes role in every /auth/* response (login, register,
+  // /me, oauth). Gates the admin-only entry point in the profile tab.
+  role: UserRole;
   created_at: string;
 }
 

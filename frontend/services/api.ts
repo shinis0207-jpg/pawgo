@@ -10,6 +10,7 @@ import {
   CorrectionRequest,
   CorrectionRequestCreatePayload,
   CorrectionRequestStatus,
+  CorrectionRequestCategory,
 } from "@/types";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
@@ -127,8 +128,9 @@ export const aiApi = {
     }),
 };
 
-// Correction requests (user side). admin queue lives at /admin/correction-requests
-// and is consumed by a future admin UI, not from the mobile app.
+// Correction requests (user side). The admin queue at /admin/correction-requests
+// is consumed by the mobile admin flow inside this same app — see adminCorrectionsApi
+// below. ADMIN_EMAILS allowlist + require_admin on the backend keeps it gated.
 export const correctionRequestsApi = {
   submit: (data: CorrectionRequestCreatePayload) =>
     apiClient.post<CorrectionRequest>("/correction-requests", data),
@@ -144,4 +146,33 @@ export const correctionRequestsApi = {
       page: number;
       page_size: number;
     }>("/correction-requests", { params }),
+};
+
+// Correction requests (admin side). Backend gates these with require_admin, so
+// every call here will 403 unless the bearer token belongs to a UserRole.ADMIN.
+// The mobile UI further hides the entry point behind useIsAdmin() — that's
+// cosmetic, the real authorization is server-side.
+export const adminCorrectionsApi = {
+  listQueue: (params?: {
+    status?: CorrectionRequestStatus;
+    request_category?: CorrectionRequestCategory;
+    place_id?: number;
+    page?: number;
+    page_size?: number;
+  }) =>
+    apiClient.get<{
+      items: CorrectionRequest[];
+      total: number;
+      page: number;
+      page_size: number;
+    }>("/admin/correction-requests", { params }),
+
+  resolve: (
+    requestId: number,
+    payload: { action: "approve" | "reject"; admin_note?: string },
+  ) =>
+    apiClient.patch<CorrectionRequest>(
+      `/admin/correction-requests/${requestId}`,
+      payload,
+    ),
 };

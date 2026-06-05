@@ -98,3 +98,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (current) set({ user: { ...current, ...partial } });
   },
 }));
+
+// Single source of truth for the admin gate. Used by the profile entry point
+// and the /admin route guard so a typo can't open the admin UI to non-admins.
+export const useIsAdmin = () =>
+  useAuthStore((s) => s.user?.role === "admin");
