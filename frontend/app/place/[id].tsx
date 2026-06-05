@@ -148,26 +148,38 @@ export default function PlaceDetailScreen() {
             <ActionButton icon="navigate" label={t("place.directions")} onPress={handleDirections} />
           </View>
 
-          {/* Info */}
-          <InfoCard>
-            {place.hours && (
-              <InfoRow icon="time-outline" label={t("place.hours")}>
-                <Text style={styles.infoValue}>
-                  {Object.entries(place.hours).map(([day, h]) => `${day}: ${h}`).join("\n")}
-                </Text>
-              </InfoRow>
-            )}
-            {place.phone && (
-              <InfoRow icon="call-outline" label={t("place.phone")}>
-                <Text style={styles.infoValue}>{place.phone}</Text>
-              </InfoRow>
-            )}
-            {place.entrance_fee && (
-              <InfoRow icon="ticket-outline" label={t("place.entrance_fee")}>
-                <Text style={styles.infoValue}>{place.entrance_fee}</Text>
-              </InfoRow>
-            )}
-          </InfoCard>
+          {/* Info — hide the whole card when none of hours/phone/entrance_fee
+              are present so we don't ship an empty white shadow box. MFDS seed
+              data has hours=null + entrance_fee=null and phone is often null
+              too, which used to leave just the InfoCard padding/shadow on
+              screen. Same pattern as the pet-info IIFE below. */}
+          {(() => {
+            const showHours = place.hours != null;
+            const showPhone = place.phone != null;
+            const showFee = place.entrance_fee != null;
+            if (!showHours && !showPhone && !showFee) return null;
+            return (
+              <InfoCard>
+                {showHours && (
+                  <InfoRow icon="time-outline" label={t("place.hours")}>
+                    <Text style={styles.infoValue}>
+                      {Object.entries(place.hours!).map(([day, h]) => `${day}: ${h}`).join("\n")}
+                    </Text>
+                  </InfoRow>
+                )}
+                {showPhone && (
+                  <InfoRow icon="call-outline" label={t("place.phone")}>
+                    <Text style={styles.infoValue}>{place.phone}</Text>
+                  </InfoRow>
+                )}
+                {showFee && (
+                  <InfoRow icon="ticket-outline" label={t("place.entrance_fee")}>
+                    <Text style={styles.infoValue}>{place.entrance_fee}</Text>
+                  </InfoRow>
+                )}
+              </InfoCard>
+            );
+          })()}
 
           {/* Pet info — show only fields where we actually have data.
               Hide the whole card when nothing is known so we never invent
