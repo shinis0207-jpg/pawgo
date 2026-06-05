@@ -66,7 +66,7 @@ export function FilterSheet({ visible, filters, onApply, onClose }: Props) {
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
-            <Section label={t("categories.accommodation").replace("숙박", "") + "카테고리"}>
+            <Section label={t("filter.category_section")}>
               <View style={styles.row}>
                 {CATEGORIES.map((cat) => (
                   <Chip

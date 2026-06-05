@@ -145,7 +145,7 @@ export default function MapScreen() {
     <SafeAreaView style={styles.container}>
       {/* 지도 영역 — MapView 인터페이스만 사용하므로 provider 교체 영향 없음 */}
       <View style={styles.mapContainer}>
-        <ErrorBoundary fallbackLabel="지도 렌더 실패">
+        <ErrorBoundary fallbackLabel={t("map.render_error")}>
           <MapView
             key={`map-${recenterSeq}`}
             initialLatitude={location?.latitude ?? 37.5665}
@@ -231,7 +231,7 @@ export default function MapScreen() {
           <Text style={styles.listTitle}>
             {showEmergency ? t("map.emergency_vet") : t("map.title")}
           </Text>
-          <Text style={styles.listCount}>{places.length}개</Text>
+          <Text style={styles.listCount}>{t("map.results_count", { count: places.length })}</Text>
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false}>

@@ -42,7 +42,7 @@ export default function AuthScreen() {
       router.replace("/(tabs)");
     } catch (err: any) {
       const msg = err?.response?.data?.detail ?? t("common.error");
-      Alert.alert("오류", msg);
+      Alert.alert(t("common.error"), msg);
     }
   };
 
@@ -142,7 +142,7 @@ export default function AuthScreen() {
         {/* OAuth */}
         <View style={styles.divider}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>또는</Text>
+          <Text style={styles.dividerText}>{t("auth.or_divider")}</Text>
           <View style={styles.dividerLine} />
         </View>
 
@@ -155,7 +155,7 @@ export default function AuthScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.back()} style={styles.skipBtn}>
-          <Text style={styles.skipText}>나중에 하기</Text>
+          <Text style={styles.skipText}>{t("auth.skip_for_now")}</Text>
         </TouchableOpacity>
       </KeyboardAvoidingView>
     </SafeAreaView>

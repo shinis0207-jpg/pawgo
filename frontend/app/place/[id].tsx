@@ -185,7 +185,7 @@ export default function PlaceDetailScreen() {
             const anyVisible = showIndoor || showOutdoor || showParking || showWeight;
             if (!anyVisible) return null;
             return (
-              <InfoCard title="반려동물 정보">
+              <InfoCard title={t("place.pet_info_title")}>
                 <View style={styles.petInfoGrid}>
                   {showIndoor && (
                     <PetInfoBadge
@@ -223,7 +223,7 @@ export default function PlaceDetailScreen() {
           {/* Description */}
           {place.description && (
             <View style={styles.description}>
-              <Text style={styles.sectionTitle}>소개</Text>
+              <Text style={styles.sectionTitle}>{t("place.about_title")}</Text>
               <Text style={styles.descriptionText}>{place.description}</Text>
             </View>
           )}

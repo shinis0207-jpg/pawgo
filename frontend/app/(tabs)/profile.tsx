@@ -34,7 +34,7 @@ export default function ProfileScreen() {
   const handleLogout = () => {
     Alert.alert(
       t("profile.logout"),
-      t("auth.logout") + "하시겠습니까?",
+      t("profile.logout_confirm"),
       [
         { text: t("common.cancel"), style: "cancel" },
         { text: t("profile.logout"), style: "destructive", onPress: logout },
@@ -82,7 +82,7 @@ export default function ProfileScreen() {
             {user.is_verified && (
               <View style={styles.verifiedBadge}>
                 <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
-                <Text style={styles.verifiedText}>인증됨</Text>
+                <Text style={styles.verifiedText}>{t("profile.verified_badge")}</Text>
               </View>
             )}
           </View>
@@ -138,14 +138,14 @@ export default function ProfileScreen() {
         </Section>
 
         {/* Menu */}
-        <Section title="설정">
+        <Section title={t("profile.settings_section")}>
           <MenuItem icon="notifications-outline" label={t("profile.notifications")} />
           <MenuItem icon="document-text-outline" label={t("profile.terms")} />
           <MenuItem icon="shield-outline" label={t("profile.privacy")} />
           <MenuItem icon="information-circle-outline" label={`${t("profile.version")} 1.0.0`} />
         </Section>
 
-        <Section title="계정">
+        <Section title={t("profile.account_section")}>
           <TouchableOpacity style={styles.logoutRow} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={20} color={Colors.error} />
             <Text style={styles.logoutText}>{t("profile.logout")}</Text>

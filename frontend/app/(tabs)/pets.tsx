@@ -106,7 +106,7 @@ export default function PetsScreen() {
         <View style={styles.center}>
           <Ionicons name="paw-outline" size={64} color={Colors.textLight} />
           <Text style={styles.emptyTitle}>{t("auth.login")}</Text>
-          <Text style={styles.emptySubtitle}>반려동물 관리를 위해 로그인하세요</Text>
+          <Text style={styles.emptySubtitle}>{t("pets.login_required_subtitle")}</Text>
         </View>
       </SafeAreaView>
     );

@@ -32,7 +32,9 @@
     "no_account": "계정이 없으신가요?",
     "have_account": "이미 계정이 있으신가요?",
     "welcome": "PawGo에 오신 것을 환영합니다",
-    "subtitle": "반려동물과 함께하는 특별한 여행"
+    "subtitle": "반려동물과 함께하는 특별한 여행",
+    "or_divider": "또는",
+    "skip_for_now": "나중에 하기"
   },
   "tabs": {
     "map": "지도",
@@ -47,7 +49,10 @@
     "no_places": "주변에 장소가 없습니다",
     "location_required": "위치 권한이 필요합니다",
     "search_this_area": "이 지역에서 다시 검색",
-    "my_location": "내 위치"
+    "my_location": "내 위치",
+    "results_count": "{{count}}개",
+    "location_error": "위치를 가져올 수 없습니다",
+    "render_error": "지도 렌더 실패"
   },
   "search": {
     "results_count": "{{count}}개 결과",
@@ -77,7 +82,8 @@
     "parking": "주차 가능",
     "radius": "반경",
     "apply": "적용",
-    "reset": "초기화"
+    "reset": "초기화",
+    "category_section": "카테고리"
   },
   "place": {
     "detail": "장소 상세",
@@ -99,7 +105,9 @@
     "no_reviews": "아직 리뷰가 없습니다",
     "write_review": "리뷰 작성",
     "kg_limit": "{{weight}}kg 이하만 입장",
-    "no_limit": "체중 제한 없음"
+    "no_limit": "체중 제한 없음",
+    "pet_info_title": "반려동물 정보",
+    "about_title": "소개"
   },
   "pets": {
     "title": "내 반려동물",
@@ -119,6 +127,7 @@
     "rabbit": "토끼",
     "other": "기타",
     "no_pets": "등록된 반려동물이 없습니다",
+    "login_required_subtitle": "반려동물 관리를 위해 로그인하세요",
     "add_vaccination": "예방접종 추가",
     "vaccine_name": "백신명",
     "vaccine_date": "접종일",
@@ -151,7 +160,11 @@
     "version": "버전",
     "logout": "로그아웃",
     "delete_account": "회원 탈퇴",
-    "activity_section": "활동"
+    "activity_section": "활동",
+    "settings_section": "설정",
+    "account_section": "계정",
+    "verified_badge": "인증됨",
+    "logout_confirm": "로그아웃하시겠습니까?"
   },
   "vet": {
     "emergency": "긴급",

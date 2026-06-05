@@ -32,7 +32,9 @@
     "no_account": "Don't have an account?",
     "have_account": "Already have an account?",
     "welcome": "Welcome to PawGo",
-    "subtitle": "Travel with your beloved pets"
+    "subtitle": "Travel with your beloved pets",
+    "or_divider": "or",
+    "skip_for_now": "Skip for now"
   },
   "tabs": {
     "map": "Map",
@@ -47,7 +49,10 @@
     "no_places": "No places found nearby",
     "location_required": "Location permission required",
     "search_this_area": "Search this area",
-    "my_location": "My location"
+    "my_location": "My location",
+    "results_count": "{{count}} places",
+    "location_error": "Couldn't get your location",
+    "render_error": "Map render failed"
   },
   "search": {
     "results_count": "{{count}} results",
@@ -77,7 +82,8 @@
     "parking": "Parking Available",
     "radius": "Radius",
     "apply": "Apply",
-    "reset": "Reset"
+    "reset": "Reset",
+    "category_section": "Category"
   },
   "place": {
     "detail": "Place Details",
@@ -99,7 +105,9 @@
     "no_reviews": "No reviews yet",
     "write_review": "Write a Review",
     "kg_limit": "{{weight}}kg limit",
-    "no_limit": "No weight limit"
+    "no_limit": "No weight limit",
+    "pet_info_title": "Pet information",
+    "about_title": "About"
   },
   "pets": {
     "title": "My Pets",
@@ -119,6 +127,7 @@
     "rabbit": "Rabbit",
     "other": "Other",
     "no_pets": "No pets registered yet",
+    "login_required_subtitle": "Sign in to manage your pets",
     "add_vaccination": "Add Vaccination",
     "vaccine_name": "Vaccine Name",
     "vaccine_date": "Date",
@@ -151,7 +160,11 @@
     "version": "Version",
     "logout": "Log Out",
     "delete_account": "Delete Account",
-    "activity_section": "Activity"
+    "activity_section": "Activity",
+    "settings_section": "Settings",
+    "account_section": "Account",
+    "verified_badge": "Verified",
+    "logout_confirm": "Log out?"
   },
   "vet": {
     "emergency": "Emergency",
