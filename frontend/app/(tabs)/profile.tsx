@@ -12,7 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useAuthStore } from "@/store/authStore";
+import { useAuthStore, useIsAdmin } from "@/store/authStore";
 import { Colors, Spacing, Radius, Typography } from "@/constants/theme";
 import { SupportedLanguage, supportedLanguages } from "@/i18n";
 
@@ -25,6 +25,7 @@ export default function ProfileScreen() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const { user, logout } = useAuthStore();
+  const isAdmin = useIsAdmin();
 
   const handleLanguageChange = (lang: SupportedLanguage) => {
     i18n.changeLanguage(lang);
@@ -114,6 +115,18 @@ export default function ProfileScreen() {
             ))}
           </View>
         </Section>
+
+        {/* Admin — only visible to ADMIN_EMAILS users. Server-side require_admin
+            still gates every API call; this entry point is just visibility. */}
+        {isAdmin && (
+          <Section title={t("admin.section_title")}>
+            <MenuItem
+              icon="shield-checkmark-outline"
+              label={t("admin.menu_title")}
+              onPress={() => router.push("/admin/corrections")}
+            />
+          </Section>
+        )}
 
         {/* Activity */}
         <Section title={t("profile.activity_section")}>
