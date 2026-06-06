@@ -9,7 +9,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FF6B35"
+      "backgroundColor": "#FEF6EB"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -24,7 +24,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FF6B35"
+        "backgroundColor": "#FEF6EB"
       },
       "package": "com.pawgo.app",
       "permissions": [
