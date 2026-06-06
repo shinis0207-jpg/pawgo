@@ -16,6 +16,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/authStore";
 import { Colors, Spacing, Radius, Typography } from "@/constants/theme";
+import { MVP_SHOW_SOCIAL_LOGIN } from "@/constants/mvp";
 
 type Mode = "login" | "register";
 
@@ -139,20 +140,26 @@ export default function AuthScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* OAuth */}
-        <View style={styles.divider}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>{t("auth.or_divider")}</Text>
-          <View style={styles.dividerLine} />
-        </View>
+        {/* OAuth — hidden in MVP. Both buttons have no onPress yet, so
+            ship email-only. Styles below are kept so flipping the flag
+            in Phase 5+ restores the section as-is. */}
+        {MVP_SHOW_SOCIAL_LOGIN && (
+          <>
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>{t("auth.or_divider")}</Text>
+              <View style={styles.dividerLine} />
+            </View>
 
-        <TouchableOpacity style={styles.kakaoBtn}>
-          <Text style={styles.kakaoBtnText}>💬 {t("auth.kakao_login")}</Text>
-        </TouchableOpacity>
+            <TouchableOpacity style={styles.kakaoBtn}>
+              <Text style={styles.kakaoBtnText}>💬 {t("auth.kakao_login")}</Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity style={styles.googleBtn}>
-          <Text style={styles.googleBtnText}>G  {t("auth.google_login")}</Text>
-        </TouchableOpacity>
+            <TouchableOpacity style={styles.googleBtn}>
+              <Text style={styles.googleBtnText}>G  {t("auth.google_login")}</Text>
+            </TouchableOpacity>
+          </>
+        )}
 
         <TouchableOpacity onPress={() => router.back()} style={styles.skipBtn}>
           <Text style={styles.skipText}>{t("auth.skip_for_now")}</Text>

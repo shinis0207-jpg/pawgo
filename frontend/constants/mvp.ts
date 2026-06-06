@@ -30,6 +30,16 @@ export const MVP_SHOW_EMERGENCY_VET = false;
 export const MVP_SHOW_REVIEWS = false;
 
 /**
+ * Social login buttons (Kakao + Google) are rendered as styled UI but
+ * carry no onPress handlers — i.e. they're decorative until the OAuth
+ * flow is wired up. Hide them (along with the "또는" divider that only
+ * makes sense above OAuth options) so the auth screen ships as
+ * email-only. Flip to `true` once Kakao/Google OAuth is implemented in
+ * Phase 5+ (Apple sign-in is a separate workstream).
+ */
+export const MVP_SHOW_SOCIAL_LOGIN = false;
+
+/**
  * Which FilterSheet sections are surfaced.
  *
  * The MFDS seed (384 Seoul places) carries verified+allowed status only —
