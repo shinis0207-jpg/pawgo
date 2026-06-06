@@ -18,10 +18,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.pawgo.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "현재 위치 기반 반려동물 동반 장소를 찾기 위해 위치 정보가 필요합니다.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "현재 위치 기반 반려동물 동반 장소를 찾기 위해 위치 정보가 필요합니다.",
-        "NSCameraUsageDescription": "반려동물 사진 등록을 위해 카메라 접근 권한이 필요합니다.",
-        "NSPhotoLibraryUsageDescription": "반려동물 사진 등록을 위해 사진 접근 권한이 필요합니다."
+        "NSLocationWhenInUseUsageDescription": "현재 위치 기반 반려동물 동반 장소를 찾기 위해 위치 정보가 필요합니다."
       }
     },
     "android": {
@@ -32,11 +29,7 @@
       "package": "com.pawgo.app",
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.CAMERA",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.ACCESS_COARSE_LOCATION"
       ]
     },
     "web": {
@@ -45,13 +38,7 @@
     },
     "plugins": [
       "expo-router",
-      "expo-location",
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "반려동물 사진 등록을 위해 사진 접근 권한이 필요합니다."
-        }
-      ]
+      "expo-location"
     ],
     "scheme": "pawgo",
     "updates": {

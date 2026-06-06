@@ -15,7 +15,6 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
 import { usePetStore } from "@/store/petStore";
 import { useAuthStore } from "@/store/authStore";
 import { PetCard } from "@/components/PetCard";
