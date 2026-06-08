@@ -9,6 +9,7 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -17,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store/authStore";
 import { Colors, Spacing, Radius, Typography } from "@/constants/theme";
 import { MVP_SHOW_SOCIAL_LOGIN } from "@/constants/mvp";
+import { PRIVACY_POLICY_URL } from "@/constants/links";
 
 type Mode = "login" | "register";
 
@@ -161,6 +163,16 @@ export default function AuthScreen() {
           </>
         )}
 
+        {/* Privacy policy link — surfaced before the user signs up so they
+            can read what they're agreeing to. Same skipText tone (subdued,
+            centered) — it's a footer, not a CTA. */}
+        <TouchableOpacity
+          onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}
+          style={styles.privacyBtn}
+        >
+          <Text style={styles.privacyText}>{t("profile.privacy")}</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity onPress={() => router.back()} style={styles.skipBtn}>
           <Text style={styles.skipText}>{t("auth.skip_for_now")}</Text>
         </TouchableOpacity>
@@ -237,4 +249,10 @@ const styles = StyleSheet.create({
   googleBtnText: { ...Typography.button, color: Colors.text },
   skipBtn: { alignItems: "center" },
   skipText: { ...Typography.bodySmall, color: Colors.textSecondary },
+  privacyBtn: { alignItems: "center", marginBottom: Spacing.sm },
+  privacyText: {
+    ...Typography.bodySmall,
+    color: Colors.textSecondary,
+    textDecorationLine: "underline",
+  },
 });

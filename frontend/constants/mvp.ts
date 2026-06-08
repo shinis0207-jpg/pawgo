@@ -40,6 +40,14 @@ export const MVP_SHOW_REVIEWS = false;
 export const MVP_SHOW_SOCIAL_LOGIN = false;
 
 /**
+ * Notifications settings menu lives in the profile tab but has no
+ * destination yet (no push permission flow, no preferences screen).
+ * Hide it so we don't ship a tap-and-do-nothing item. Same MVP_SHOW_*
+ * pattern as the rest. Flip when push notifications are wired up.
+ */
+export const MVP_SHOW_NOTIFICATIONS_MENU = false;
+
+/**
  * Which FilterSheet sections are surfaced.
  *
  * The MFDS seed (384 Seoul places) carries verified+allowed status only —

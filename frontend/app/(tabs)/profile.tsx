@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
   Switch,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -15,6 +16,8 @@ import { useRouter } from "expo-router";
 import { useAuthStore, useIsAdmin } from "@/store/authStore";
 import { Colors, Spacing, Radius, Typography } from "@/constants/theme";
 import { SupportedLanguage, supportedLanguages } from "@/i18n";
+import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from "@/constants/links";
+import { MVP_SHOW_NOTIFICATIONS_MENU } from "@/constants/mvp";
 
 const LANGUAGE_LABELS: Record<string, string> = {
   ko: "한국어",
@@ -139,9 +142,19 @@ export default function ProfileScreen() {
 
         {/* Menu */}
         <Section title={t("profile.settings_section")}>
-          <MenuItem icon="notifications-outline" label={t("profile.notifications")} />
-          <MenuItem icon="document-text-outline" label={t("profile.terms")} />
-          <MenuItem icon="shield-outline" label={t("profile.privacy")} />
+          {MVP_SHOW_NOTIFICATIONS_MENU && (
+            <MenuItem icon="notifications-outline" label={t("profile.notifications")} />
+          )}
+          <MenuItem
+            icon="document-text-outline"
+            label={t("profile.terms")}
+            onPress={() => Linking.openURL(TERMS_OF_SERVICE_URL)}
+          />
+          <MenuItem
+            icon="shield-outline"
+            label={t("profile.privacy")}
+            onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}
+          />
           <MenuItem icon="information-circle-outline" label={`${t("profile.version")} 1.0.0`} />
         </Section>
 
