@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
   Linking,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -55,6 +56,11 @@ export default function AuthScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.inner}
       >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         {/* Logo */}
         <View style={styles.logoSection}>
           <Text style={styles.logo}>🐾</Text>
@@ -176,6 +182,7 @@ export default function AuthScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.skipBtn}>
           <Text style={styles.skipText}>{t("auth.skip_for_now")}</Text>
         </TouchableOpacity>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -184,6 +191,7 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface },
   inner: { flex: 1, padding: Spacing.xl },
+  scrollContent: { flexGrow: 1 },
   logoSection: { alignItems: "center", marginBottom: Spacing.xl },
   logo: { fontSize: 60 },
   appName: { ...Typography.h1, color: Colors.primary, marginTop: Spacing.sm },
