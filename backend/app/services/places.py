@@ -90,7 +90,6 @@ async def get_places_nearby(
         select(Place, distance_km)
         .outerjoin(PetPolicy, PetPolicy.place_id == Place.id)
         .where(
-            _haversine_km(lat, lng) <= filters.radius_km,
             Place.is_active == True,
             Place.visibility_status == VisibilityStatus.VISIBLE,
             Place.category.in_(DEFAULT_MAP_CATEGORIES),
@@ -114,10 +113,18 @@ async def get_places_nearby(
         query = query.where(Place.has_parking == filters.has_parking)
 
     if filters.q:
-        pattern = f"%{filters.q.strip()}%"
-        query = query.where(
-            (Place.name.ilike(pattern)) | (Place.address.ilike(pattern))
-        )
+        # Name-only, whitespace-insensitive: strip spaces from both query and
+        # name so "스타 벅스" matches "스타벅스" (and vice versa). Address is
+        # intentionally NOT matched — search is "what place do I want to go"
+        # not "what's near this address". Radius gate is also skipped below
+        # so the user can find a place anywhere in the dataset.
+        q_nospace = filters.q.strip().replace(" ", "")
+        pattern = f"%{q_nospace}%"
+        query = query.where(func.replace(Place.name, " ", "").ilike(pattern))
+    else:
+        # Nearby browsing mode (no q): keep the radius gate so the default
+        # list isn't the whole country.
+        query = query.where(_haversine_km(lat, lng) <= filters.radius_km)
 
     count_query = select(func.count()).select_from(query.subquery())
     total = (await db.execute(count_query)).scalar_one()

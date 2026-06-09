@@ -41,6 +41,15 @@ export default function SearchScreen() {
   const [showFilter, setShowFilter] = useState(false);
 
   const debouncedQuery = useDebounced(query.trim(), 300);
+  // Empty input bypasses the debounce — clearing the field returns to the
+  // hint state instantly, not 300ms later. Only non-empty input waits.
+  const effectiveQuery = query.trim() === "" ? "" : debouncedQuery;
+
+  // Search runs name-only across the whole dataset (backend skips radius
+  // when q is set), so we don't gate on the GPS fix. lat/lng still go up
+  // for distance ordering; Seoul is the fallback when location is null.
+  const lat = location?.latitude ?? 37.5665;
+  const lng = location?.longitude ?? 126.978;
 
   // TODO(policy 2.5): once owner_claims / user reports introduce rows with
   // verification_status='unknown', send include_unverified=true here AND
@@ -53,12 +62,12 @@ export default function SearchScreen() {
     fetchNextPage,
     hasNextPage,
   } = useInfiniteQuery<PlaceListResponse>({
-    queryKey: ["search", debouncedQuery, filters, location, i18n.language],
+    queryKey: ["search", effectiveQuery, filters, lat, lng, i18n.language],
     queryFn: ({ pageParam = 1 }) =>
       placesApi
-        .getNearby(location!.latitude, location!.longitude, {
+        .getNearby(lat, lng, {
           ...filters,
-          q: debouncedQuery || undefined,
+          q: effectiveQuery,
           lang: i18n.language,
           page: pageParam as number,
           size: PAGE_SIZE,
@@ -67,7 +76,7 @@ export default function SearchScreen() {
     initialPageParam: 1,
     getNextPageParam: (lastPage) =>
       lastPage.page * lastPage.size < lastPage.total ? lastPage.page + 1 : undefined,
-    enabled: !!location,
+    enabled: !!effectiveQuery,
   });
 
   const items = data?.pages.flatMap((p) => p.items) ?? [];
@@ -104,16 +113,6 @@ export default function SearchScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Hint — only when the user hasn't typed *and* there are no results to
-          look at. With nearby results already on screen the hint just clutters;
-          the user can see places, the search box itself tells them they can
-          search. Hide during loading to prevent a flash. */}
-      {!debouncedQuery && !isLoading && items.length === 0 && (
-        <View style={styles.hint}>
-          <Text style={styles.hintText}>{t("search.hint")}</Text>
-        </View>
-      )}
-
       {/* Results header */}
       {!isLoading && total > 0 && (
         <View style={styles.resultHeader}>
@@ -146,7 +145,7 @@ export default function SearchScreen() {
               {debouncedQuery ? (
                 <>
                   <Text style={styles.emptyTitle}>
-                    {t("search.empty_match_title", { query: debouncedQuery })}
+                    {t("search.empty_match_title")}
                   </Text>
                   <Text style={styles.emptyHint}>
                     {t("search.empty_match_hint")}

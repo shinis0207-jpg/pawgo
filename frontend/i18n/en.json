@@ -58,9 +58,9 @@
     "results_count": "{{count}} results",
     "results_for": "{{count}} results for \"{{query}}\"",
     "hint": "Search by place name or address. Pet-friendliness is shown when verified.",
-    "empty_match_title": "No results for \"{{query}}\"",
-    "empty_match_hint": "Try a partial name.",
-    "empty_no_query": "No places to show nearby."
+    "empty_match_title": "No results doesn't necessarily mean pets aren't allowed.",
+    "empty_match_hint": "You may still be welcome at outdoor seating, so please ask the venue directly.",
+    "empty_no_query": "Search for the place you're planning to visit!\nFind out whether it's an MFDS-certified pet-friendly venue."
   },
   "categories": {
     "accommodation": "Hotels",
