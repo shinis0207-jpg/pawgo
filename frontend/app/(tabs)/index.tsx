@@ -7,6 +7,7 @@ import {
   ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
@@ -69,6 +70,7 @@ export default function MapScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { location } = useLocation();
+  const tabBarHeight = useBottomTabBarHeight();
   const [filters, setFilters] = useState<PlaceFilter>({ radius_km: 5 });
   const [showFilter, setShowFilter] = useState(false);
   const [showEmergency, setShowEmergency] = useState(false);
@@ -234,7 +236,10 @@ export default function MapScreen() {
           <Text style={styles.listCount}>{t("map.results_count", { count: places.length })}</Text>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.md }}
+        >
           {places.length === 0 && (
             <View style={styles.empty}>
               <Text style={styles.emptyText}>{t("map.no_places")}</Text>
@@ -247,7 +252,6 @@ export default function MapScreen() {
               onPress={() => router.push(`/place/${place.id}`)}
             />
           ))}
-          <View style={{ height: Spacing.xl }} />
         </ScrollView>
 
         {/* 핀 탭 → 미니 카드. 리스트 영역 위에 floating으로 떠서 리스트 일부를

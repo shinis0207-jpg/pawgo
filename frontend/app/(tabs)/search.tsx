@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useInfiniteQuery } from "@tanstack/react-query";
@@ -36,6 +37,7 @@ export default function SearchScreen() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
   const { location } = useLocation();
+  const tabBarHeight = useBottomTabBarHeight();
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<PlaceFilter>({ radius_km: 10 });
   const [showFilter, setShowFilter] = useState(false);
@@ -169,7 +171,7 @@ export default function SearchScreen() {
               </View>
             ) : null
           }
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: tabBarHeight + Spacing.md }]}
         />
       )}
 

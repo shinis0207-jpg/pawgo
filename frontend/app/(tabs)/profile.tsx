@@ -10,6 +10,7 @@ import {
   Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -29,6 +30,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const isAdmin = useIsAdmin();
+  const tabBarHeight = useBottomTabBarHeight();
 
   const handleLanguageChange = (lang: SupportedLanguage) => {
     i18n.changeLanguage(lang);
@@ -71,7 +73,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
+      <ScrollView contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.md }}>
         {/* User info */}
         <View style={styles.userCard}>
           <View style={styles.avatar}>
@@ -165,7 +167,6 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </Section>
 
-        <View style={{ height: Spacing.xxl }} />
       </ScrollView>
     </SafeAreaView>
   );

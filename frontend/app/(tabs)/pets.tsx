@@ -13,6 +13,7 @@ import {
   Platform,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { usePetStore } from "@/store/petStore";
@@ -27,6 +28,7 @@ export default function PetsScreen() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const { pets, isLoading, fetchPets, addPet, updatePet, deletePet } = usePetStore();
   const [showAddModal, setShowAddModal] = useState(false);
   const [form, setForm] = useState<Partial<Pet>>({ type: "dog" });
@@ -127,7 +129,7 @@ export default function PetsScreen() {
       {isLoading ? (
         <ActivityIndicator size="large" color={Colors.primary} style={styles.loader} />
       ) : (
-        <ScrollView contentContainerStyle={styles.list}>
+        <ScrollView contentContainerStyle={[styles.list, { paddingBottom: tabBarHeight + Spacing.md }]}>
           {pets.length === 0 ? (
             <View style={styles.empty}>
               <Text style={styles.emptyEmoji}>🐾</Text>
