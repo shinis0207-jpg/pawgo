@@ -89,7 +89,7 @@ export default function SearchScreen() {
   ).length;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       {/* Search bar */}
       <View style={styles.searchBar}>
         <View style={styles.searchInput}>

@@ -72,7 +72,7 @@ export default function ProfileScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={{ paddingBottom: tabBarHeight + Spacing.md }}>
         {/* User info */}
         <View style={styles.userCard}>

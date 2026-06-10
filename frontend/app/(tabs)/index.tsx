@@ -144,7 +144,7 @@ export default function MapScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       {/* 지도 영역 — MapView 인터페이스만 사용하므로 provider 교체 영향 없음 */}
       <View style={styles.mapContainer}>
         <ErrorBoundary fallbackLabel={t("map.render_error")}>
