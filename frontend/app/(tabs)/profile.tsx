@@ -18,7 +18,7 @@ import { useAuthStore, useIsAdmin } from "@/store/authStore";
 import { Colors, Spacing, Radius, Typography } from "@/constants/theme";
 import { SupportedLanguage, supportedLanguages } from "@/i18n";
 import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from "@/constants/links";
-import { MVP_SHOW_NOTIFICATIONS_MENU } from "@/constants/mvp";
+import { MVP_SHOW_NOTIFICATIONS_MENU, MVP_SHOW_PROFILE_EDIT } from "@/constants/mvp";
 
 const LANGUAGE_LABELS: Record<string, string> = {
   ko: "한국어",
@@ -91,9 +91,11 @@ export default function ProfileScreen() {
               </View>
             )}
           </View>
-          <TouchableOpacity>
-            <Ionicons name="pencil-outline" size={20} color={Colors.textSecondary} />
-          </TouchableOpacity>
+          {MVP_SHOW_PROFILE_EDIT && (
+            <TouchableOpacity>
+              <Ionicons name="pencil-outline" size={20} color={Colors.textSecondary} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Language */}

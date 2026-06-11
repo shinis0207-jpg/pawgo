@@ -48,6 +48,14 @@ export const MVP_SHOW_SOCIAL_LOGIN = false;
 export const MVP_SHOW_NOTIFICATIONS_MENU = false;
 
 /**
+ * Profile edit (pencil) button on the user card has no onPress and no
+ * destination route — there's no /profile/edit screen and no PATCH
+ * /auth/me endpoint yet. Hide the icon so it doesn't look interactive.
+ * Flip when the edit screen + backend update endpoint land.
+ */
+export const MVP_SHOW_PROFILE_EDIT = false;
+
+/**
  * Which FilterSheet sections are surfaced.
  *
  * The MFDS seed (384 Seoul places) carries verified+allowed status only —
