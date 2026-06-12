@@ -18,6 +18,7 @@ from app.models.owner_claim import OwnerClaim, OwnerClaimStatus
 from app.models.policy_change_log import PolicyChangeLog
 from app.models.place_matching_job import PlaceMatchingJob, PlaceMatchingStatus
 from app.models.place_rating import PlaceRating
+from app.models.favorite import Favorite
 
 __all__ = [
     "User",
@@ -43,4 +44,5 @@ __all__ = [
     "PlaceMatchingJob",
     "PlaceMatchingStatus",
     "PlaceRating",
+    "Favorite",
 ]
