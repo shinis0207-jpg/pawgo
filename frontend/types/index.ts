@@ -168,6 +168,21 @@ export interface PlaceListResponse {
   size: number;
 }
 
+export interface Favorite {
+  id: number;
+  place_id: number;
+  created_at: string;
+  /** Backend hydrates the full place payload so list screens reuse PlaceCard. */
+  place: Place;
+}
+
+export interface FavoriteListResponse {
+  items: Favorite[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
 export interface Review {
   id: number;
   place_id: number;

@@ -218,6 +218,17 @@
     "my_list_load_error": "Couldn't load your corrections.",
     "my_list_retry": "Retry"
   },
+  "favorites": {
+    "my_list_menu": "Saved places",
+    "my_list_title": "Saved places",
+    "my_list_empty_title": "No saved places yet",
+    "my_list_empty_body": "Tap the heart on places you like to save them here.",
+    "my_list_load_error": "Couldn't load your saved places.",
+    "my_list_retry": "Retry",
+    "auth_required_title": "Sign in required",
+    "auth_required_body": "You need to sign in to save places.",
+    "auth_required_cta": "Sign in"
+  },
   "verification": {
     "official_verified": "Official",
     "owner_verified": "Owner verified",

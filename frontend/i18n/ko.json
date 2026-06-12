@@ -218,6 +218,17 @@
     "my_list_load_error": "목록을 불러오지 못했어요.",
     "my_list_retry": "다시 시도"
   },
+  "favorites": {
+    "my_list_menu": "즐겨찾기",
+    "my_list_title": "즐겨찾기",
+    "my_list_empty_title": "저장한 장소가 없어요",
+    "my_list_empty_body": "마음에 드는 곳의 하트를 눌러 즐겨찾기에 담아보세요.",
+    "my_list_load_error": "즐겨찾기를 불러오지 못했어요.",
+    "my_list_retry": "다시 시도",
+    "auth_required_title": "로그인이 필요해요",
+    "auth_required_body": "즐겨찾기에 담으려면 로그인이 필요해요.",
+    "auth_required_cta": "로그인하기"
+  },
   "verification": {
     "official_verified": "공식 확인",
     "owner_verified": "운영자 확인",

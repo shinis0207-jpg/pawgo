@@ -11,6 +11,8 @@ import {
   CorrectionRequestCreatePayload,
   CorrectionRequestStatus,
   CorrectionRequestCategory,
+  Favorite,
+  FavoriteListResponse,
 } from "@/types";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
@@ -146,6 +148,19 @@ export const correctionRequestsApi = {
       page: number;
       page_size: number;
     }>("/correction-requests", { params }),
+};
+
+// Favorites — POST/DELETE are idempotent on the backend (UNIQUE(user_id, place_id)
+// + DELETE is a no-op if absent), so the store's optimistic toggle can fire
+// without worrying about 409s or double-deletes. Token is auto-attached by
+// the request interceptor above.
+export const favoritesApi = {
+  add: (place_id: number, lang?: string) =>
+    apiClient.post<Favorite>("/favorites", { place_id }, { params: { lang } }),
+  remove: (place_id: number) =>
+    apiClient.delete(`/favorites/${place_id}`),
+  list: (params?: { lang?: string; page?: number; page_size?: number }) =>
+    apiClient.get<FavoriteListResponse>("/favorites", { params }),
 };
 
 // Correction requests (admin side). Backend gates these with require_admin, so
