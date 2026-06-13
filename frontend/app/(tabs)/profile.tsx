@@ -138,6 +138,11 @@ export default function ProfileScreen() {
         {/* Activity */}
         <Section title={t("profile.activity_section")}>
           <MenuItem
+            icon="heart-outline"
+            label={t("favorites.my_list_menu")}
+            onPress={() => router.push("/profile/favorites")}
+          />
+          <MenuItem
             icon="alert-circle-outline"
             label={t("correction.my_list_menu")}
             onPress={() => router.push("/profile/corrections")}
