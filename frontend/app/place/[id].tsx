@@ -23,6 +23,7 @@ import { Review } from "@/types";
 import { CategoryPlaceholder } from "@/components/CategoryPlaceholder";
 import { VerificationBadge } from "@/components/VerificationBadge";
 import { CorrectionRequestModal } from "@/components/CorrectionRequestModal";
+import { FavoriteButton } from "@/components/FavoriteButton";
 import { useAuthStore } from "@/store/authStore";
 import { MVP_SHOW_REVIEWS } from "@/constants/mvp";
 
@@ -118,6 +119,7 @@ export default function PlaceDetailScreen() {
                 />
               </View>
             </View>
+            <FavoriteButton place={place} />
           </View>
 
           {/* Rating — hidden in MVP because place.rating / review_count are

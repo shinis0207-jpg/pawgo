@@ -3,6 +3,7 @@ import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { User } from "@/types";
 import { authApi } from "@/services/api";
+import { useFavoritesStore } from "@/store/favoritesStore";
 
 // 웹 환경에서는 SecureStore가 동작하지 않으므로 localStorage로 fallback
 const storage = {
@@ -91,6 +92,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: async () => {
     await storage.deleteItemAsync("auth_token");
     set({ user: null, token: null });
+    // User-scoped caches must drop with the session — otherwise the next
+    // user to sign in on this device sees the previous account's hearts
+    // until ensureLoaded refetches. Safe across the cyclic import because
+    // both stores only touch each other at call time, not at module load.
+    useFavoritesStore.getState().clear();
   },
 
   updateUser: (partial) => {
