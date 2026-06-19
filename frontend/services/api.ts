@@ -42,12 +42,35 @@ apiClient.interceptors.response.use(
 );
 
 // Auth
+// Phase 2-B email verification: register no longer returns a Token; the
+// caller must follow up with /auth/verify-email to receive one.
+export type RegisterResponse = {
+  email: string;
+  message: string;
+  code_ttl_min: number;
+};
+export type VerifyEmailResponse = {
+  access_token: string;
+  token_type: string;
+  user: User;
+};
+export type ResendCodeResponse = {
+  message: string;
+  cooldown_sec: number;
+};
+
 export const authApi = {
   register: (data: { email: string; name: string; password: string; language?: string }) =>
-    apiClient.post("/auth/register", data),
+    apiClient.post<RegisterResponse>("/auth/register", data),
 
   login: (email: string, password: string) =>
     apiClient.post("/auth/login", { email, password }),
+
+  verifyEmail: (email: string, code: string) =>
+    apiClient.post<VerifyEmailResponse>("/auth/verify-email", { email, code }),
+
+  resendCode: (email: string) =>
+    apiClient.post<ResendCodeResponse>("/auth/resend-code", { email }),
 
   oauthLogin: (provider: string, access_token: string) =>
     apiClient.post("/auth/oauth", { provider, access_token }),
