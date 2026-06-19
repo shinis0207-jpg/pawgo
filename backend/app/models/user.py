@@ -1,4 +1,4 @@
-from sqlalchemy import String, DateTime, Enum as SAEnum, Boolean
+from sqlalchemy import String, DateTime, Enum as SAEnum, Boolean, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from datetime import datetime
@@ -40,6 +40,16 @@ class User(Base):
     profile_image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    verification_code: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    verification_code_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    verification_attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0"
+    )
+    last_verification_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     role: Mapped[UserRole] = mapped_column(
         SAEnum(UserRole, values_callable=lambda c: [m.value for m in c]),
         default=UserRole.USER,
