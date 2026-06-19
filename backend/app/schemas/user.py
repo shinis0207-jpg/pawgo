@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
 from app.models.user import AuthProvider, Language, UserRole
 
@@ -47,3 +47,27 @@ class TokenData(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
+
+# ── Email verification (Phase 2-B) ─────────────────────────────────────
+# Internal fields (verification_code, expires_at, attempts) are
+# deliberately NOT exposed on any response schema.
+
+class RegisterResponse(BaseModel):
+    email: EmailStr
+    message: str
+    code_ttl_min: int
+
+
+class VerifyEmailRequest(BaseModel):
+    email: EmailStr
+    code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
+class ResendCodeRequest(BaseModel):
+    email: EmailStr
+
+
+class ResendCodeResponse(BaseModel):
+    message: str
+    cooldown_sec: int
