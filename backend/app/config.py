@@ -40,6 +40,16 @@ class Settings(BaseSettings):
     # Anthropic
     anthropic_api_key: str = ""
 
+    # SMTP (Gmail App Password for verification email send).
+    # User / password live ONLY in backend/.env (gitignored). The defaults
+    # below are intentionally empty so the tracked source never carries
+    # credentials. send_verification_email() raises if either is unset.
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    email_from_name: str = "PawGo"
+
     # CORS
     cors_origins: list[str] = ["*"]
 
