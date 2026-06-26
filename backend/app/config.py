@@ -50,6 +50,13 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     email_from_name: str = "PawGo"
 
+    # Feature flag — when False (default), /auth/register issues a Token
+    # immediately and /auth/login skips the is_verified gate. Flip to True
+    # (via env EMAIL_VERIFICATION_ENABLED=true) once a working transactional
+    # email provider (e.g. Resend) replaces SMTP in services/email.py —
+    # Railway blocks outbound SMTP ports so Gmail App Password is unusable.
+    email_verification_enabled: bool = False
+
     # CORS
     cors_origins: list[str] = ["*"]
 

@@ -87,7 +87,18 @@ export default function AuthScreen() {
         router.replace("/(tabs)");
       } else if (mode === "register") {
         if (!email || !password || !name) return;
-        const { email: sentTo } = await register({ email, password, name });
+        const { email: sentTo, autoLoggedIn } = await register({
+          email,
+          password,
+          name,
+        });
+        // Backend toggle OFF path: token already saved by the store, skip
+        // the verify screen and go straight to the app. ON path returns
+        // autoLoggedIn=false and we fall through to the verify transition.
+        if (autoLoggedIn) {
+          router.replace("/(tabs)");
+          return;
+        }
         setPendingEmail(sentTo);
         setCode("");
         setResendCooldown(60);

@@ -75,3 +75,19 @@ export const MVP_VISIBLE_FILTERS = {
   indoor_outdoor: false,
   parking: false,
 } as const;
+
+/**
+ * Email verification flow (verify screen, resend cooldown, login gate) is
+ * fully implemented but disabled until a working transactional email
+ * provider replaces SMTP — Railway blocks outbound SMTP ports so Gmail App
+ * Password is unusable. When OFF, the backend's /auth/register returns a
+ * Token immediately and authStore.register auto-logs the user in. Flip to
+ * `true` once Resend (or equivalent) is wired up in
+ * backend/app/services/email.py AND the backend env flips
+ * EMAIL_VERIFICATION_ENABLED=true.
+ *
+ * Kept as a named constant for convention parity with the rest of this
+ * file even though the runtime branch in app/auth/index.tsx keys off the
+ * response shape (access_token present vs absent) rather than this flag.
+ */
+export const MVP_SHOW_EMAIL_VERIFICATION = false;

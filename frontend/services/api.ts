@@ -42,17 +42,22 @@ apiClient.interceptors.response.use(
 );
 
 // Auth
-// Phase 2-B email verification: register no longer returns a Token; the
-// caller must follow up with /auth/verify-email to receive one.
+// AuthTokenResponse is the shared "you're logged in" wire shape — issued
+// by /auth/login, /auth/verify-email, /auth/oauth, and (when the email
+// verification flag is off) /auth/register too. RegisterResponse is the
+// "code mailed, follow up with verify-email" variant returned only when
+// the backend's EMAIL_VERIFICATION_ENABLED flag is on. The caller in
+// authStore.register branches on `"access_token" in body` — response
+// shape is the truth, not the feature flag itself.
+export type AuthTokenResponse = {
+  access_token: string;
+  token_type: string;
+  user: User;
+};
 export type RegisterResponse = {
   email: string;
   message: string;
   code_ttl_min: number;
-};
-export type VerifyEmailResponse = {
-  access_token: string;
-  token_type: string;
-  user: User;
 };
 export type ResendCodeResponse = {
   message: string;
@@ -61,19 +66,19 @@ export type ResendCodeResponse = {
 
 export const authApi = {
   register: (data: { email: string; name: string; password: string; language?: string }) =>
-    apiClient.post<RegisterResponse>("/auth/register", data),
+    apiClient.post<RegisterResponse | AuthTokenResponse>("/auth/register", data),
 
   login: (email: string, password: string) =>
-    apiClient.post("/auth/login", { email, password }),
+    apiClient.post<AuthTokenResponse>("/auth/login", { email, password }),
 
   verifyEmail: (email: string, code: string) =>
-    apiClient.post<VerifyEmailResponse>("/auth/verify-email", { email, code }),
+    apiClient.post<AuthTokenResponse>("/auth/verify-email", { email, code }),
 
   resendCode: (email: string) =>
     apiClient.post<ResendCodeResponse>("/auth/resend-code", { email }),
 
   oauthLogin: (provider: string, access_token: string) =>
-    apiClient.post("/auth/oauth", { provider, access_token }),
+    apiClient.post<AuthTokenResponse>("/auth/oauth", { provider, access_token }),
 
   getMe: () => apiClient.get<User>("/auth/me"),
 };

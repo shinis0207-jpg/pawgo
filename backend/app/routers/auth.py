@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from app.config import get_settings
 from app.database import get_db
 from app.models.user import User, AuthProvider
 from app.schemas.user import (
@@ -39,38 +40,88 @@ from app.services.email import (
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=RegisterResponse)
+@router.post("/register", response_model=RegisterResponse | Token)
 async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
-    """Create or refresh an unverified account, mint a 6-digit code, persist
-    it, commit, then send the email outside the transaction.
+    """Create an account. Two paths gated on settings.email_verification_enabled:
 
-    - Verified duplicate → 400 (existing behaviour).
-    - Unverified duplicate → name + password are overwritten with the new
-      values (per Q1 decision), verification fields are reset, code is
-      resent. This lets a user who never made it past verification "try
-      again" without a stale credential lockout.
-    - SMTP failure after commit → 503; the account is left in the DB
-      unverified so a subsequent /resend-code can recover it.
+    OFF (default, current state — Railway blocks outbound SMTP so the email
+    flow can't reach Gmail anyway): create with is_verified=True and return
+    a Token. The verify_email / resend_code endpoints stay live as dead
+    code so flipping the flag re-enables the full flow without code revert.
+
+    ON: keep the original flow — create with is_verified=False, mint a
+    6-digit code, persist, commit, then send the email outside the
+    transaction. Verified-duplicate emails 400 either way.
     """
+    settings = get_settings()
     result = await db.execute(select(User).where(User.email == data.email))
     existing = result.scalar_one_or_none()
 
     if existing and existing.is_verified:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    code = generate_code()
     now = datetime.now(timezone.utc)
-    expires = now + timedelta(minutes=CODE_TTL_MIN)
 
+    if settings.email_verification_enabled:
+        code = generate_code()
+        expires = now + timedelta(minutes=CODE_TTL_MIN)
+
+        if existing:
+            existing.name = data.name
+            existing.hashed_password = hash_password(data.password)
+            existing.language = data.language
+            existing.verification_code = code
+            existing.verification_code_expires_at = expires
+            existing.verification_attempts = 0
+            existing.last_verification_sent_at = now
+            target_email = existing.email
+        else:
+            user = User(
+                email=data.email,
+                name=data.name,
+                hashed_password=hash_password(data.password),
+                language=data.language,
+                role=resolve_user_role_from_email(data.email),
+                is_verified=False,
+                verification_code=code,
+                verification_code_expires_at=expires,
+                verification_attempts=0,
+                last_verification_sent_at=now,
+            )
+            db.add(user)
+            target_email = data.email
+
+        # Q5: commit user + code BEFORE the SMTP call so a mail failure does
+        # not roll back the account row. get_db's auto-commit at handler
+        # return is a no-op once we've already committed here.
+        await db.commit()
+
+        try:
+            await send_verification_email(target_email, code)
+        except Exception:
+            raise HTTPException(
+                status_code=503,
+                detail="Failed to send verification email. Please try /resend-code.",
+            )
+
+        return RegisterResponse(
+            email=target_email,
+            message="인증 코드를 보냈습니다.",
+            code_ttl_min=CODE_TTL_MIN,
+        )
+
+    # Toggle OFF — instant-verified path. Mail isn't sent; verification_*
+    # columns are reset/null so a future flag flip starts from a clean slate.
     if existing:
         existing.name = data.name
         existing.hashed_password = hash_password(data.password)
         existing.language = data.language
-        existing.verification_code = code
-        existing.verification_code_expires_at = expires
+        existing.is_verified = True
+        existing.verification_code = None
+        existing.verification_code_expires_at = None
         existing.verification_attempts = 0
-        existing.last_verification_sent_at = now
-        target_email = existing.email
+        existing.last_verification_sent_at = None
+        user = existing
     else:
         user = User(
             email=data.email,
@@ -78,33 +129,14 @@ async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
             hashed_password=hash_password(data.password),
             language=data.language,
             role=resolve_user_role_from_email(data.email),
-            is_verified=False,
-            verification_code=code,
-            verification_code_expires_at=expires,
-            verification_attempts=0,
-            last_verification_sent_at=now,
+            is_verified=True,
         )
         db.add(user)
-        target_email = data.email
-
-    # Q5: commit user + code BEFORE the SMTP call so a mail failure does not
-    # roll back the account row. get_db's auto-commit at handler return is
-    # a no-op once we've already committed here.
     await db.commit()
+    await db.refresh(user)
 
-    try:
-        await send_verification_email(target_email, code)
-    except Exception:
-        raise HTTPException(
-            status_code=503,
-            detail="Failed to send verification email. Please try /resend-code.",
-        )
-
-    return RegisterResponse(
-        email=target_email,
-        message="인증 코드를 보냈습니다.",
-        code_ttl_min=CODE_TTL_MIN,
-    )
+    token = create_access_token(token_payload_for(user))
+    return Token(access_token=token, user=UserResponse.model_validate(user))
 
 
 @router.post("/verify-email", response_model=Token)
@@ -222,6 +254,7 @@ async def resend_code(data: ResendCodeRequest, db: AsyncSession = Depends(get_db
 
 @router.post("/login", response_model=Token)
 async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+    settings = get_settings()
     result = await db.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none()
     if not user or not verify_password(data.password, user.hashed_password or ""):
@@ -229,10 +262,12 @@ async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
 
-    # Email-verification gate. Frontend reads detail.code to route to the
-    # verify screen. No auto-resend here (would amplify mail spam and
-    # bypass the 60s cooldown).
-    if not user.is_verified:
+    # Email-verification gate. Active only when the feature flag is on;
+    # OFF (default) lets pre-existing unverified rows log in normally so
+    # nobody is locked out by a flag that wasn't there when they signed up.
+    # Frontend reads detail.code to route to the verify screen. No
+    # auto-resend here (would amplify mail spam and bypass the 60s cooldown).
+    if settings.email_verification_enabled and not user.is_verified:
         raise HTTPException(
             status_code=403,
             detail={

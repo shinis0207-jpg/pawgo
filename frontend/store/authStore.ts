@@ -2,7 +2,7 @@ import { create } from "zustand";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import { User } from "@/types";
-import { authApi } from "@/services/api";
+import { authApi, AuthTokenResponse, RegisterResponse } from "@/services/api";
 import { useFavoritesStore } from "@/store/favoritesStore";
 
 // 웹 환경에서는 SecureStore가 동작하지 않으므로 localStorage로 fallback
@@ -37,13 +37,14 @@ interface AuthState {
 
   initialize: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
-  // Phase 2-B: register no longer auto-logs the user in. It returns the
-  // email the backend confirmed it sent a code to so the caller can
-  // transition to a verify screen and pass that email back into
-  // verifyEmail() below.
+  // register's response shape depends on the backend's
+  // EMAIL_VERIFICATION_ENABLED flag: when ON the body is a
+  // RegisterResponse (code mailed, caller transitions to verify screen);
+  // when OFF the body is an AuthTokenResponse (auto-login). The branch
+  // happens here and is surfaced to the caller via `autoLoggedIn`.
   register: (
     data: { email: string; name: string; password: string },
-  ) => Promise<{ email: string }>;
+  ) => Promise<{ email: string; autoLoggedIn: boolean }>;
   verifyEmail: (email: string, code: string) => Promise<void>;
   resendCode: (email: string) => Promise<{ cooldown_sec: number }>;
   logout: () => Promise<void>;
@@ -88,8 +89,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
     try {
       const response = await authApi.register(data);
+      const body = response.data;
+      // Toggle OFF path — backend returned a token-shaped body, so we log
+      // the user in here and the caller just navigates home. Toggle ON
+      // path returns RegisterResponse and the caller drives the verify
+      // screen transition.
+      if ("access_token" in body) {
+        const tokenBody = body as AuthTokenResponse;
+        await storage.setItemAsync("auth_token", tokenBody.access_token);
+        set({
+          user: tokenBody.user,
+          token: tokenBody.access_token,
+          isLoading: false,
+        });
+        return { email: tokenBody.user.email, autoLoggedIn: true };
+      }
+      const registerBody = body as RegisterResponse;
       set({ isLoading: false });
-      return { email: response.data.email };
+      return { email: registerBody.email, autoLoggedIn: false };
     } catch (error) {
       set({ isLoading: false });
       throw error;
