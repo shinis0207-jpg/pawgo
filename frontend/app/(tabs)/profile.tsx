@@ -18,7 +18,11 @@ import { useAuthStore, useIsAdmin } from "@/store/authStore";
 import { Colors, Spacing, Radius, Typography } from "@/constants/theme";
 import { SupportedLanguage, supportedLanguages } from "@/i18n";
 import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from "@/constants/links";
-import { MVP_SHOW_NOTIFICATIONS_MENU, MVP_SHOW_PROFILE_EDIT } from "@/constants/mvp";
+import {
+  MVP_SHOW_NOTIFICATIONS_MENU,
+  MVP_SHOW_PROFILE_EDIT,
+  MVP_SHOW_EMAIL_VERIFICATION,
+} from "@/constants/mvp";
 
 const LANGUAGE_LABELS: Record<string, string> = {
   ko: "한국어",
@@ -84,7 +88,7 @@ export default function ProfileScreen() {
           <View style={styles.userInfo}>
             <Text style={styles.userName}>{user.name}</Text>
             <Text style={styles.userEmail}>{user.email}</Text>
-            {user.is_verified && (
+            {MVP_SHOW_EMAIL_VERIFICATION && user.is_verified && (
               <View style={styles.verifiedBadge}>
                 <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
                 <Text style={styles.verifiedText}>{t("profile.verified_badge")}</Text>
