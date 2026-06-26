@@ -39,6 +39,7 @@ export default function TabLayout() {
         name="search"
         options={{
           title: t("tabs.search"),
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="search-outline" size={size} color={color} />
           ),
@@ -48,6 +49,7 @@ export default function TabLayout() {
         name="pets"
         options={{
           title: t("tabs.pets"),
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="paw-outline" size={size} color={color} />
           ),
@@ -57,6 +59,7 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: t("tabs.profile"),
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" size={size} color={color} />
           ),
