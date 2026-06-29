@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -69,7 +70,7 @@ function toMapMarkers(places: Place[], selectedId: number | null): MapMarker[] {
 export default function MapScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { location, refreshLocation } = useLocation();
+  const { location, refreshLocation, isLoading: locationLoading } = useLocation();
   const tabBarHeight = useBottomTabBarHeight();
   const [filters, setFilters] = useState<PlaceFilter>({ radius_km: 5 });
   const [showFilter, setShowFilter] = useState(false);
@@ -196,8 +197,13 @@ export default function MapScreen() {
             style={styles.myLocationBtn}
             onPress={handleMyLocation}
             accessibilityLabel={t("map.my_location")}
+            disabled={locationLoading}
           >
-            <Ionicons name="locate" size={20} color={Colors.primary} />
+            {locationLoading ? (
+              <ActivityIndicator size="small" color={Colors.primary} />
+            ) : (
+              <Ionicons name="locate" size={20} color={Colors.primary} />
+            )}
           </TouchableOpacity>
         )}
 
