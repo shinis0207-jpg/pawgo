@@ -69,7 +69,7 @@ function toMapMarkers(places: Place[], selectedId: number | null): MapMarker[] {
 export default function MapScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { location } = useLocation();
+  const { location, refreshLocation } = useLocation();
   const tabBarHeight = useBottomTabBarHeight();
   const [filters, setFilters] = useState<PlaceFilter>({ radius_km: 5 });
   const [showFilter, setShowFilter] = useState(false);
@@ -132,7 +132,18 @@ export default function MapScreen() {
     if (mapCenter) setSearchOverride(mapCenter);
   };
 
-  const handleMyLocation = () => {
+  const handleMyLocation = async () => {
+    // Re-measure GPS each tap. Pre-fix, this button just re-mounted the
+    // map at the location captured once at app start, so a user who'd
+    // physically moved saw the camera return to a stale point. We still
+    // run the camera-reset path on measurement failure so the UI never
+    // gets stuck — useLocation falls back to the previous location +
+    // sets `error` for the next refresh.
+    try {
+      await refreshLocation();
+    } catch {
+      // Swallow — refreshLocation already handles its own error state.
+    }
     setSearchOverride(null);
     setMapCenter(null);
     setRecenterSeq((n) => n + 1);
