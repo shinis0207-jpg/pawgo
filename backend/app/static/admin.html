@@ -94,6 +94,21 @@
   ul.results li:hover { background: #f0f4ff; }
   ul.results li .id { color: var(--muted); margin-right: 8px; font-size: 12px; }
   ul.results li .cat { color: var(--muted); font-size: 12px; margin-left: 8px; }
+  ul.results li .badge-closed {
+    background: var(--danger); color: #fff; padding: 2px 6px;
+    border-radius: 4px; font-size: 11px; margin-left: 8px; font-weight: 600;
+  }
+  .subsection { margin: 4px 0 8px; }
+  .subsection h3 {
+    margin: 0 0 12px; font-size: 14px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  #editCard h3 {
+    margin: 0 0 12px; font-size: 14px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .status-visible { color: var(--ok); font-weight: 600; }
+  .status-hidden  { color: var(--danger); font-weight: 600; }
   .note {
     font-size: 12px; color: var(--muted); margin-top: 4px;
   }
@@ -129,8 +144,8 @@
   <section id="searchCard" class="card hidden">
     <h2>장소 검색</h2>
     <p class="note">
-      서울 중심 좌표(37.5665, 126.978) 반경 50km 안에서 이름 검색.
-      include_unverified=true로 전 상태의 장소를 노출. 전국 커버는 아직 아님.
+      관리자 전용 조회(/admin/places). 폐업(숨김) 장소도 결과에 포함됩니다.
+      이름은 공백 무시 부분일치. 비워두면 최근 이름순으로 나열.
     </p>
     <div class="row">
       <label for="searchQ">이름</label>
@@ -146,7 +161,33 @@
 
   <!-- EDIT -->
   <section id="editCard" class="card hidden">
-    <h2>정책 편집 — <span id="placeName"></span> <span class="note" id="placeMeta"></span></h2>
+    <h2>편집 — <span id="placeName"></span> <span class="note" id="placeMeta"></span></h2>
+
+    <!-- 장소 기본정보 -->
+    <div class="subsection">
+      <h3>장소 기본정보</h3>
+      <div class="row">
+        <label for="b_name">이름</label>
+        <input id="b_name" type="text" maxlength="200" />
+      </div>
+      <div class="row">
+        <label for="b_phone">전화</label>
+        <input id="b_phone" type="text" maxlength="20" placeholder="비우면 값 지우기" />
+      </div>
+      <div class="row">
+        <label>현재 상태</label>
+        <span id="b_status_label"></span>
+      </div>
+      <div class="actions">
+        <button id="basicSaveBtn">기본정보 저장</button>
+        <button class="secondary" id="visibilityToggleBtn"></button>
+      </div>
+      <div id="basicMsg"></div>
+    </div>
+
+    <hr />
+
+    <h3>동반 정책</h3>
 
     <div class="row">
       <label>verification_status</label>
@@ -358,21 +399,14 @@ async function bootstrapFromToken() {
   }
 }
 
-// --- Search ---
+// --- Search (admin-only endpoint, includes HIDDEN rows) ---
 async function search() {
   const q = $("searchQ").value.trim();
-  if (!q) return;
   setMsg($("searchMsg"), "검색 중…", "ok");
   $("results").innerHTML = "";
-  // Seoul-city-hall coords + 50km radius; include_unverified=true so we see
-  // every place regardless of trust band. Deliberately no cross-country
-  // search yet — this screen ships as the Seoul-scoped MVP.
-  const params = new URLSearchParams({
-    lat: "37.5665", lng: "126.978",
-    radius_km: "50", size: "50", page: "1",
-    q, include_unverified: "true", lang: "ko",
-  });
-  const r = await api("/places/nearby?" + params.toString());
+  const params = new URLSearchParams({ page: "1", size: "50" });
+  if (q) params.set("q", q);
+  const r = await api("/admin/places?" + params.toString());
   if (!r.ok) {
     setMsg($("searchMsg"),
       "검색 실패 (" + r.status + "): " + JSON.stringify(r.body?.detail ?? r.body ?? ""),
@@ -385,36 +419,68 @@ async function search() {
   ul.innerHTML = "";
   items.forEach((p) => {
     const li = document.createElement("li");
+    const badge = p.visibility_status === "hidden"
+      ? ' <span class="badge-closed">폐업</span>' : '';
     li.innerHTML =
       '<span class="id">#' + p.id + '</span>' +
       '<strong>' + escapeHtml(p.name) + '</strong>' +
-      '<span class="cat">' + escapeHtml(p.category) + '</span>';
+      '<span class="cat">' + escapeHtml(p.category) + '</span>' +
+      badge;
     li.onclick = () => selectPlace(p);
     ul.appendChild(li);
   });
 }
 
-// --- Selection + load policy ---
+// --- Selection + load (both basic info + policy) ---
+// The admin search response IS the authoritative PlaceResponse — no need
+// to re-GET /places/{id}. That also avoids the public GET's is_active
+// filter (harmless here — search already enforces it — but conceptually
+// cleaner: admin flow never leaves the admin API surface).
 async function selectPlace(p) {
-  currentPlace = { id: p.id, name: p.name, category: p.category };
-  await loadPolicy();
+  currentPlace = p;
+  loadBasic(p);
+  loadPolicy(p);
 }
 
-async function loadPolicy() {
-  if (!currentPlace) return;
-  setMsg($("editMsg"), "불러오는 중…", "ok");
-  const r = await api("/places/" + currentPlace.id + "?lang=ko");
-  if (!r.ok) {
-    setMsg($("editMsg"),
-      "장소 조회 실패 (" + r.status + "): " + JSON.stringify(r.body?.detail ?? r.body ?? ""),
-      "err");
-    return;
+// Baseline for basic-info diff on save. Distinct from loadedPolicy so
+// the policy save button and basic-info save button don't step on each
+// other.
+let loadedBasic = null;
+
+function loadBasic(p) {
+  loadedBasic = {
+    name: p.name ?? "",
+    phone: p.phone ?? "",
+    visibility_status: p.visibility_status,
+  };
+  $("placeName").textContent = p.name;
+  $("placeMeta").textContent = " (#" + p.id + ", " + p.category + ")";
+  $("b_name").value = loadedBasic.name;
+  $("b_phone").value = loadedBasic.phone;
+  renderVisibility(loadedBasic.visibility_status);
+  setMsg($("basicMsg"), "", "");
+  show($("editCard"));
+}
+
+function renderVisibility(status) {
+  const label = $("b_status_label");
+  const btn = $("visibilityToggleBtn");
+  if (status === "hidden") {
+    label.innerHTML = '<span class="status-hidden">폐업(숨김)</span>';
+    btn.textContent = "영업 중으로 복구";
+  } else {
+    label.innerHTML = '<span class="status-visible">영업 중</span>';
+    btn.textContent = "폐업 처리";
   }
-  const policy = r.body?.pet_policy || {};
+}
+
+function loadPolicy(placeFromSearch) {
+  // Prefer the pet_policy already carried by the search response — it's
+  // the same PlaceResponse shape /places/{id} would return. Fall back to
+  // an empty object if the row somehow has no policy (shouldn't happen
+  // per the create_place_with_default_policy invariant).
+  const policy = placeFromSearch?.pet_policy || {};
   loadedPolicy = policy;
-  $("placeName").textContent = currentPlace.name;
-  $("placeMeta").textContent =
-    " (#" + currentPlace.id + ", " + currentPlace.category + ")";
   $("v_verification").value = policy.verification_status ?? "";
   ENUM_FIELDS.forEach((f) => { $("v_" + f).value = policy[f] ?? ""; });
   TRI_FIELDS.forEach((f) => {
@@ -426,8 +492,35 @@ async function loadPolicy() {
       ? "" : String(policy[f]);
   });
   TEXT_FIELDS.forEach((f) => { $("v_" + f).value = policy[f] ?? ""; });
-  show($("editCard"));
   setMsg($("editMsg"), "", "");
+}
+
+// Called by the policy section's "reload" button — re-fetches from the
+// admin list endpoint with a targeted q so we don't drift from what the
+// search view showed.
+async function reloadCurrentPlace() {
+  if (!currentPlace) return;
+  setMsg($("editMsg"), "불러오는 중…", "ok");
+  // Ask for the current place by exact name — cheap targeted fetch.
+  const params = new URLSearchParams({
+    q: currentPlace.name, page: "1", size: "20",
+  });
+  const r = await api("/admin/places?" + params.toString());
+  if (!r.ok) {
+    setMsg($("editMsg"),
+      "장소 조회 실패 (" + r.status + "): " + JSON.stringify(r.body?.detail ?? r.body ?? ""),
+      "err");
+    return;
+  }
+  const items = r.body?.items || [];
+  const fresh = items.find((p) => p.id === currentPlace.id);
+  if (!fresh) {
+    setMsg($("editMsg"), "장소를 찾을 수 없습니다 (이름이 바뀌었을 수 있음).", "err");
+    return;
+  }
+  currentPlace = fresh;
+  loadBasic(fresh);
+  loadPolicy(fresh);
 }
 
 // --- Value readers (form value → JSON value) ---
@@ -504,14 +597,87 @@ async function save() {
     "ok");
 }
 
+// --- Basic-info save (name / phone) — diff-only PATCH ---
+async function saveBasic() {
+  if (!currentPlace || !loadedBasic) return;
+  const nameNow = $("b_name").value.trim();
+  const phoneRaw = $("b_phone").value.trim();
+  if (!nameNow) {
+    setMsg($("basicMsg"), "이름은 비울 수 없습니다.", "err");
+    return;
+  }
+
+  const patch = {};
+  if (nameNow !== (loadedBasic.name ?? "")) patch.name = nameNow;
+  // Phone: blank input -> null (clear). Both sides normalized: baseline
+  // null becomes "" via loadBasic, so an untouched blank input diffs to
+  // no change.
+  const phoneAfter = phoneRaw === "" ? null : phoneRaw;
+  const phoneBefore = loadedBasic.phone === "" ? null : loadedBasic.phone;
+  if (phoneAfter !== phoneBefore) patch.phone = phoneAfter;
+
+  if (Object.keys(patch).length === 0) {
+    setMsg($("basicMsg"), "변경된 필드 없음.", "ok");
+    return;
+  }
+
+  setMsg($("basicMsg"), "저장 중…", "ok");
+  const r = await api("/admin/places/" + currentPlace.id, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+  if (!r.ok) {
+    setMsg($("basicMsg"),
+      "저장 실패 (" + r.status + "): " + JSON.stringify(r.body?.detail ?? r.body ?? ""),
+      "err");
+    return;
+  }
+  // Response is the fresh PlaceResponse — use it to reset baseline + form.
+  currentPlace = r.body;
+  loadBasic(r.body);
+  setMsg($("basicMsg"),
+    "저장됨 (변경 " + Object.keys(patch).length + "개 필드).",
+    "ok");
+}
+
+// --- Visibility toggle — confirm on hide, silent on restore ---
+async function toggleVisibility() {
+  if (!currentPlace || !loadedBasic) return;
+  const nextStatus =
+    loadedBasic.visibility_status === "hidden" ? "visible" : "hidden";
+  if (nextStatus === "hidden") {
+    if (!confirm("폐업 처리하면 목록에서 숨겨집니다. 진행할까요?")) return;
+  }
+  setMsg($("basicMsg"), "상태 변경 중…", "ok");
+  const r = await api("/admin/places/" + currentPlace.id, {
+    method: "PATCH",
+    body: JSON.stringify({ visibility_status: nextStatus }),
+  });
+  if (!r.ok) {
+    setMsg($("basicMsg"),
+      "상태 변경 실패 (" + r.status + "): " + JSON.stringify(r.body?.detail ?? r.body ?? ""),
+      "err");
+    return;
+  }
+  currentPlace = r.body;
+  loadBasic(r.body);
+  setMsg(
+    $("basicMsg"),
+    nextStatus === "hidden" ? "폐업 처리됨." : "영업 중으로 복구됨.",
+    "ok",
+  );
+}
+
 // --- Wire up ---
 $("loginBtn").addEventListener("click", login);
 $("logoutBtn").addEventListener("click", logout);
 $("searchBtn").addEventListener("click", search);
 $("searchQ").addEventListener("keydown",
   (e) => { if (e.key === "Enter") search(); });
+$("basicSaveBtn").addEventListener("click", saveBasic);
+$("visibilityToggleBtn").addEventListener("click", toggleVisibility);
 $("saveBtn").addEventListener("click", save);
-$("reloadBtn").addEventListener("click", loadPolicy);
+$("reloadBtn").addEventListener("click", reloadCurrentPlace);
 
 bootstrapFromToken();
 </script>

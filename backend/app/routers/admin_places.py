@@ -6,16 +6,24 @@ through update_pet_policy_with_logging so policy_change_logs and trust
 engine re-evaluation stay wired up exactly as they are for
 correction-request-driven approvals.
 """
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models.place import Place
 from app.models.user import User
-from app.schemas.place import PetPolicyPatchRequest, PetPolicyResponse
+from app.schemas.place import (
+    PetPolicyPatchRequest,
+    PetPolicyResponse,
+    PlaceAdminPatchRequest,
+    PlaceListResponse,
+    PlaceResponse,
+)
 from app.services.auth import require_admin
 from app.services.cache import cache_set, place_cache_key
+from app.services.places import place_to_response
 from app.services.policy_logger import update_pet_policy_with_logging
 from app.services.trust_engine import apply_trust_evaluation
 # Sole source of truth for the field set an admin is allowed to touch.
@@ -38,6 +46,90 @@ assert _PATCH_SCHEMA_FIELDS == _ALLOWED_POLICY_FIELDS, (
 
 
 router = APIRouter(prefix="/admin/places", tags=["admin"])
+
+
+@router.get("", response_model=PlaceListResponse)
+async def admin_list_places(
+    q: str | None = Query(default=None, max_length=100),
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=20, ge=1, le=100),
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin place listing — name search, includes HIDDEN rows.
+
+    Unlike the public /places/nearby, this endpoint deliberately does NOT
+    filter by visibility_status so an admin can find a place they just
+    soft-deleted and restore it. is_active is still enforced so
+    test/junk rows stay out.
+
+    Name matching mirrors the public search (whitespace-insensitive
+    ilike). When q is omitted, returns all places paginated.
+    """
+    query = (
+        select(Place)
+        .where(Place.is_active == True)  # noqa: E712 (SQLAlchemy needs `== True`)
+        .options(selectinload(Place.pet_policy), selectinload(Place.photos))
+    )
+    if q:
+        q_nospace = q.strip().replace(" ", "")
+        if q_nospace:
+            pattern = f"%{q_nospace}%"
+            query = query.where(
+                func.replace(Place.name, " ", "").ilike(pattern)
+            )
+
+    total = (await db.execute(
+        select(func.count()).select_from(query.subquery())
+    )).scalar_one()
+
+    rows = (await db.execute(
+        query.order_by(Place.name)
+        .offset((page - 1) * size)
+        .limit(size)
+    )).scalars().all()
+
+    items = [place_to_response(p, "ko") for p in rows]
+    return {"items": items, "total": total, "page": page, "size": size}
+
+
+@router.patch("/{place_id}", response_model=PlaceResponse)
+async def admin_update_place(
+    place_id: int,
+    data: PlaceAdminPatchRequest,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Admin edit for name / phone / visibility_status.
+
+    - 404 when the places row is missing.
+    - 422 (auto, from pydantic model_config extra='forbid' + validators)
+      when the body carries any field outside the whitelist or a blank/
+      null name / null visibility_status.
+
+    Does NOT filter by visibility_status on load — a HIDDEN place must
+    still be editable so the admin can restore it. No policy-side
+    effects: this endpoint never calls update_pet_policy_with_logging or
+    apply_trust_evaluation. Trust engine doesn't look at name / phone /
+    visibility_status, so verification bands are unaffected.
+    """
+    place = (await db.execute(
+        select(Place).where(Place.id == place_id)
+        .options(selectinload(Place.pet_policy), selectinload(Place.photos))
+    )).scalar_one_or_none()
+    if place is None:
+        raise HTTPException(status_code=404, detail="Place not found")
+
+    changes = data.model_dump(exclude_unset=True)
+    for field, value in changes.items():
+        setattr(place, field, value)
+
+    # TODO(multi-lang-cache): en/ja/zh 캐시는 무효화 안 됨. update_place +
+    # admin_update_policy + 이 라우트 세 곳 공통 문제. 후속 커밋에서 세
+    # 라우트 한꺼번에 다국어 순회 무효화로 수정 예정.
+    await cache_set(place_cache_key(place_id, "ko"), None, ttl=1)
+
+    return place_to_response(place, "ko")
 
 
 @router.patch("/{place_id}/policy", response_model=PetPolicyResponse)

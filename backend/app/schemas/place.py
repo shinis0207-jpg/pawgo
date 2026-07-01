@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 from app.models.place import PlaceCategory, VisibilityStatus
 from app.models.pet_policy import PetAllowedStatus, VerificationStatus, PolicySource
@@ -60,6 +60,52 @@ class PetPolicyPatchRequest(BaseModel):
     confidence_score: float | None = None
 
     model_config = {"extra": "forbid"}
+
+
+class PlaceAdminPatchRequest(BaseModel):
+    """Admin direct-edit body for /admin/places/{place_id}.
+
+    Partial update — only supplied fields are written (the router keys off
+    model_dump(exclude_unset=True)). extra="forbid" auto-rejects any field
+    outside this whitelist (name / phone / visibility_status) so an admin
+    can't accidentally slip a category, coordinates, or is_active edit
+    through this endpoint.
+
+    - name: DB is NOT NULL. Explicit null and blank strings are rejected;
+      to leave the name unchanged, omit the field entirely.
+    - phone: nullable. Explicit null clears the number.
+    - visibility_status: enum only. Explicit null is rejected; omit to
+      leave the status unchanged.
+    """
+    name: str | None = Field(default=None, max_length=200)
+    phone: str | None = Field(default=None, max_length=20)
+    visibility_status: VisibilityStatus | None = None
+
+    model_config = {"extra": "forbid"}
+
+    @field_validator("name")
+    @classmethod
+    def _reject_blank_or_null_name(cls, v: str | None) -> str | None:
+        # pydantic v2 does not call validators for a field's default value,
+        # so a caller who omits `name` never lands here. This branch fires
+        # only when the client sends `"name": null` or a blank string.
+        if v is None:
+            raise ValueError("name cannot be null; omit the field to skip")
+        s = v.strip()
+        if not s:
+            raise ValueError("name must not be blank")
+        return s
+
+    @field_validator("visibility_status")
+    @classmethod
+    def _reject_null_visibility(
+        cls, v: VisibilityStatus | None
+    ) -> VisibilityStatus | None:
+        if v is None:
+            raise ValueError(
+                "visibility_status cannot be null; omit the field to skip"
+            )
+        return v
 
 
 class PlaceCreate(BaseModel):
