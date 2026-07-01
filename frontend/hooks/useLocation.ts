@@ -35,13 +35,17 @@ export function useLocation() {
     }
     setPermissionGranted(true);
 
-    // Stage 1 — cheap cached fix (~tens of ms). Best-effort; failure is
-    // silent because stage 2 is what actually matters.
+    // Stage 1 — cheap cached fix (~tens of ms). Tight thresholds: only
+    // adopt a cached fix that's genuinely fresh (≤15s) and genuinely
+    // precise (≤50m). Older/looser thresholds let a "nearby but wrong"
+    // last-known fix win the race when stage 2 then times out on a cold
+    // GPS, stranding the camera on that stale point. Best-effort;
+    // failure or ineligible cache falls through to stage 2 silently.
     let hasCachedFix = false;
     try {
       const cached = await Location.getLastKnownPositionAsync({
-        maxAge: 60_000,
-        requiredAccuracy: 200,
+        maxAge: 15_000,
+        requiredAccuracy: 50,
       });
       if (cached) {
         setLocation({
@@ -55,11 +59,13 @@ export function useLocation() {
     }
 
     // Stage 2 — precise fix, raced against a 10s timeout because
-    // getCurrentPositionAsync has no native timeout option.
+    // getCurrentPositionAsync has no native timeout option. High
+    // accuracy: the my-location button is worth the extra fix time
+    // to avoid the "close but wrong" pin outdoors.
     try {
       const loc = await Promise.race<Location.LocationObject>([
         Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
+          accuracy: Location.Accuracy.High,
         }),
         new Promise<Location.LocationObject>((_, reject) =>
           setTimeout(() => reject(new Error("location_timeout")), 10_000),
