@@ -32,6 +32,36 @@ class PetPolicyResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PetPolicyPatchRequest(BaseModel):
+    """Admin direct-edit body for /admin/places/{place_id}/policy.
+
+    Partial update — only actually-supplied fields are written (the
+    router keys off model_dump(exclude_unset=True)). Fields mirror the
+    admin_correction_requests._ALLOWED_POLICY_FIELDS whitelist exactly;
+    admin_places.py asserts the two sets stay aligned so a schema
+    change here fails loudly if the whitelist isn't updated too.
+
+    verification_status is deliberately absent — the trust engine owns
+    that column and re-computes it downstream of every policy write.
+    extra="forbid" turns any unknown / verboten field into a 422 before
+    the handler runs.
+    """
+    pet_allowed_status: PetAllowedStatus | None = None
+    indoor_allowed: bool | None = None
+    outdoor_allowed: bool | None = None
+    dog_allowed: bool | None = None
+    cat_allowed: bool | None = None
+    max_weight_kg: float | None = None
+    leash_required: bool | None = None
+    carrier_required: bool | None = None
+    vaccination_required: bool | None = None
+    notes: str | None = None
+    policy_source: PolicySource | None = None
+    confidence_score: float | None = None
+
+    model_config = {"extra": "forbid"}
+
+
 class PlaceCreate(BaseModel):
     name: str
     category: PlaceCategory
