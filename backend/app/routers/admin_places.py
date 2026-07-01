@@ -15,6 +15,7 @@ from app.models.place import Place
 from app.models.user import User
 from app.schemas.place import PetPolicyPatchRequest, PetPolicyResponse
 from app.services.auth import require_admin
+from app.services.cache import cache_set, place_cache_key
 from app.services.policy_logger import update_pet_policy_with_logging
 from app.services.trust_engine import apply_trust_evaluation
 # Sole source of truth for the field set an admin is allowed to touch.
@@ -82,5 +83,11 @@ async def admin_update_policy(
     # the correction-request approve flow.
     await apply_trust_evaluation(db, place_id)
     await db.refresh(policy)
+
+    # Invalidate the place cache so the next GET /places/{id} refetches
+    # from the DB instead of serving the pre-edit response. Same pattern
+    # as places.py::update_place. Multi-language cache invalidation is a
+    # pre-existing gap in that path too — deliberately not fixed here.
+    await cache_set(place_cache_key(place_id, "ko"), None, ttl=1)
 
     return policy
