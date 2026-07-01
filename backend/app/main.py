@@ -1,5 +1,8 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 
 from app.config import get_settings
@@ -53,6 +56,18 @@ app.include_router(favorites.router, prefix=PREFIX)
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": settings.version}
+
+
+# Static admin page — a single hand-rolled HTML/JS file, no framework, no
+# CDN. Data APIs it calls (login, places search, admin PATCH) are already
+# admin-gated server-side, so the page itself doesn't need its own auth
+# guard — it just shows a login form and then a policy editor.
+_ADMIN_HTML = Path(__file__).parent / "static" / "admin.html"
+
+
+@app.get("/admin", include_in_schema=False)
+async def admin_page():
+    return FileResponse(_ADMIN_HTML, media_type="text/html; charset=utf-8")
 
 
 @app.get("/")
