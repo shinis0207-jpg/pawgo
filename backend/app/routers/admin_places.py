@@ -22,7 +22,7 @@ from app.schemas.place import (
     PlaceResponse,
 )
 from app.services.auth import require_admin
-from app.services.cache import cache_set, place_cache_key
+from app.services.cache import cache_delete_pattern
 from app.services.places import place_to_response
 from app.services.policy_logger import update_pet_policy_with_logging
 from app.services.trust_engine import apply_trust_evaluation
@@ -124,10 +124,11 @@ async def admin_update_place(
     for field, value in changes.items():
         setattr(place, field, value)
 
-    # TODO(multi-lang-cache): en/ja/zh 캐시는 무효화 안 됨. update_place +
-    # admin_update_policy + 이 라우트 세 곳 공통 문제. 후속 커밋에서 세
-    # 라우트 한꺼번에 다국어 순회 무효화로 수정 예정.
-    await cache_set(place_cache_key(place_id, "ko"), None, ttl=1)
+    # Delete every language variant so a subsequent GET refetches from
+    # the DB. cache.py already exposes cache_delete_pattern; the "ko"-only
+    # tombstone the three place-editing routes used to share was a leftover
+    # from before that helper existed.
+    await cache_delete_pattern(f"place:{place_id}:*")
 
     return place_to_response(place, "ko")
 
@@ -178,8 +179,8 @@ async def admin_update_policy(
 
     # Invalidate the place cache so the next GET /places/{id} refetches
     # from the DB instead of serving the pre-edit response. Same pattern
-    # as places.py::update_place. Multi-language cache invalidation is a
-    # pre-existing gap in that path too — deliberately not fixed here.
-    await cache_set(place_cache_key(place_id, "ko"), None, ttl=1)
+    # as places.py::update_place — pattern-delete covers every language
+    # variant in one call.
+    await cache_delete_pattern(f"place:{place_id}:*")
 
     return policy

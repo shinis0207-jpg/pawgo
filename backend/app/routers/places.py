@@ -14,7 +14,7 @@ from app.services.places import (
     get_emergency_vets,
     create_place_with_default_policy,
 )
-from app.services.cache import cache_get, cache_set, place_cache_key, places_nearby_cache_key
+from app.services.cache import cache_delete_pattern, cache_get, cache_set, place_cache_key, places_nearby_cache_key
 from app.services.photo_service import cache_place_thumbnail
 
 router = APIRouter(prefix="/places", tags=["places"])
@@ -150,5 +150,5 @@ async def update_place(
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(place, field, value)
 
-    await cache_set(place_cache_key(place_id, "ko"), None, ttl=1)
+    await cache_delete_pattern(f"place:{place_id}:*")
     return place_to_response(place)
