@@ -4,6 +4,7 @@ from sqlalchemy.sql import func
 from datetime import datetime
 import enum
 from app.database import Base
+from app.models.category import Category, place_categories
 
 
 class PlaceCategory(str, enum.Enum):
@@ -83,6 +84,14 @@ class Place(Base):
     )
     place_rating: Mapped["PlaceRating | None"] = relationship(
         "PlaceRating", back_populates="place", uselist=False
+    )
+    # Multi-tag category relationship. lazy="selectin" mirrors pet_policy
+    # / translations / photos so the default map query never fires an
+    # extra round-trip per row. No back_populates — Category deliberately
+    # doesn't expose a `.places` collection (there's no query pattern
+    # that starts from a category and walks to all its places).
+    categories: Mapped[list[Category]] = relationship(
+        Category, secondary=place_categories, lazy="selectin"
     )
 
 
