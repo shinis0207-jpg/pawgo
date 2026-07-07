@@ -6,8 +6,8 @@ Create Date: 2026-07-06
 
 Creates the schema for the flat, multi-tag category system:
 
-  - `categories`: 22 tag definitions (code / group / sort_order). The
-    22 rows are seeded here so the app can rely on their presence.
+  - `categories`: 23 tag definitions (code / group / sort_order). The
+    23 rows are seeded here so the app can rely on their presence.
   - `place_categories`: composite-PK association between places and
     categories. ondelete=CASCADE on both FKs.
 
@@ -33,7 +33,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 # Order == sort_order. Groups follow the Phase-2 category spec:
-#   food (9) → coffee_dessert (5) → drink (5) → space_tag (3) = 22 total.
+#   food (9) → coffee_dessert (5) → drink (5) → space_tag (4) = 23 total.
 _SEED_ROWS: list[tuple[str, str]] = [
     # food
     ("korean", "food"),
@@ -61,6 +61,7 @@ _SEED_ROWS: list[tuple[str, str]] = [
     ("rooftop_terrace", "space_tag"),
     ("large_group", "space_tag"),
     ("fine_dining", "space_tag"),
+    ("pet_specialized", "space_tag"),
 ]
 
 
