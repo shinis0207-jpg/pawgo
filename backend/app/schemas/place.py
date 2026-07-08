@@ -141,7 +141,10 @@ class PlaceUpdate(BaseModel):
 
 
 class PlaceFilter(BaseModel):
-    category: PlaceCategory | None = None
+    # Free-form string so callers can pass either a legacy scalar value
+    # ("restaurant" / "cafe") or a new Category.code ("korean", ...).
+    # The service layer branches on the value.
+    category: str | None = None
     has_parking: bool | None = None
     radius_km: float = 5.0
     lang: str = "ko"
@@ -152,6 +155,9 @@ class PlaceResponse(BaseModel):
     id: int
     name: str
     category: PlaceCategory
+    # Multi-tag category codes ordered by Category.sort_order. Empty
+    # list for legacy rows that haven't been tagged yet.
+    categories: list[str] = []
     latitude: float
     longitude: float
     address: str

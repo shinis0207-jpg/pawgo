@@ -11,6 +11,7 @@ Covers the 9-case dummy mix from the Phase 1 spec section 3-1 and verifies:
 """
 from sqlalchemy import select
 
+from app.models.category import Category, place_categories
 from app.models.place import Place, PlaceCategory, VisibilityStatus
 from app.models.pet_policy import (
     PetPolicy,
@@ -21,6 +22,7 @@ from app.schemas.place import PlaceFilter
 from app.services.places import (
     create_place_with_default_policy,
     get_places_nearby,
+    place_to_response,
 )
 
 
@@ -146,6 +148,128 @@ async def test_helper_creates_exactly_one_pet_policy(db_session):
     assert len(rows) == 1
     assert rows[0].pet_allowed_status == PetAllowedStatus.UNKNOWN
     assert rows[0].verification_status == VerificationStatus.UNKNOWN
+
+
+# ─── Multi-tag category filter (commit 3) ─────────────────────────────────
+
+
+async def _seed_tagged_place(
+    db,
+    name: str,
+    category: PlaceCategory,
+    tag_codes: list[str],
+) -> Place:
+    """Create a fully-verified place and attach it to the given
+    category tags. Verified so it survives the default map gate."""
+    place = await create_place_with_default_policy(db, {
+        "name": name,
+        "category": category,
+        "latitude": _LAT,
+        "longitude": _LNG,
+        "address": f"tagged addr {name}",
+    })
+    policy = (await db.execute(
+        select(PetPolicy).where(PetPolicy.place_id == place.id)
+    )).scalar_one()
+    policy.pet_allowed_status = PetAllowedStatus.ALLOWED
+    policy.verification_status = VerificationStatus.OFFICIAL_VERIFIED
+    await db.flush()
+
+    if tag_codes:
+        cat_rows = (await db.execute(
+            select(Category).where(Category.code.in_(tag_codes))
+        )).scalars().all()
+        for c in cat_rows:
+            await db.execute(
+                place_categories.insert().values(
+                    place_id=place.id, category_id=c.id,
+                )
+            )
+        await db.flush()
+    return place
+
+
+async def test_tag_filter_matches_korean_tagged_places(db_session):
+    """category='korean' returns only rows tagged with the korean
+    Category.code, and each surviving row has 'korean' in its
+    place_to_response['categories'] list."""
+    await _seed_tagged_place(db_session, "tagged-kor-1",
+                             PlaceCategory.RESTAURANT, ["korean"])
+    await _seed_tagged_place(db_session, "tagged-kor-2",
+                             PlaceCategory.RESTAURANT, ["korean", "bbq_grill"])
+    await _seed_tagged_place(db_session, "tagged-cafe",
+                             PlaceCategory.CAFE, ["cafe"])
+    await _seed_tagged_place(db_session, "tagged-nope",
+                             PlaceCategory.RESTAURANT, [])
+
+    filters = PlaceFilter(radius_km=50.0, category="korean")
+    places, total = await get_places_nearby(
+        db_session, _LAT, _LNG, filters, include_unverified=False,
+    )
+    assert total == 2, f"expected 2 korean-tagged rows, got {total}"
+    names = sorted(p.name for p in places)
+    assert names == ["tagged-kor-1", "tagged-kor-2"]
+
+
+async def test_scalar_filter_cafe_still_uses_legacy_column(db_session):
+    """category='cafe' hits the legacy scalar path (Place.category
+    == 'cafe') and is agnostic to whether the row has any tags."""
+    # Two scalar cafes — one with the 'cafe' tag, one without.
+    await _seed_tagged_place(db_session, "cafe-with-tag",
+                             PlaceCategory.CAFE, ["cafe"])
+    await _seed_tagged_place(db_session, "cafe-untagged",
+                             PlaceCategory.CAFE, [])
+    # A non-cafe row that carries the 'cafe' tag as a decoy — must NOT
+    # come back through the scalar path.
+    await _seed_tagged_place(db_session, "restaurant-with-cafe-tag",
+                             PlaceCategory.RESTAURANT, ["cafe"])
+
+    filters = PlaceFilter(radius_km=50.0, category="cafe")
+    places, total = await get_places_nearby(
+        db_session, _LAT, _LNG, filters, include_unverified=False,
+    )
+    names = sorted(p.name for p in places)
+    assert total == 2, f"expected 2 scalar cafes, got {total}"
+    assert names == ["cafe-untagged", "cafe-with-tag"]
+
+
+async def test_unknown_category_code_returns_zero(db_session):
+    await _seed_tagged_place(db_session, "tagged-kor",
+                             PlaceCategory.RESTAURANT, ["korean"])
+    filters = PlaceFilter(radius_km=50.0, category="nonexistent_code_xyz")
+    _, total = await get_places_nearby(
+        db_session, _LAT, _LNG, filters, include_unverified=False,
+    )
+    assert total == 0
+
+
+async def test_response_exposes_both_category_and_categories(db_session):
+    """place_to_response emits the legacy scalar `category` alongside
+    the new `categories` list; the list is sort_order-ordered."""
+    place = await _seed_tagged_place(
+        db_session, "dual-fields",
+        PlaceCategory.RESTAURANT,
+        ["bbq_grill", "korean"],   # seed order: korean=1, bbq_grill=6
+    )
+    # Reload with the categories relationship populated.
+    place = (await db_session.execute(
+        select(Place).where(Place.id == place.id)
+    )).scalar_one()
+    body = place_to_response(place)
+    assert body["category"] == PlaceCategory.RESTAURANT
+    assert body["categories"] == ["korean", "bbq_grill"]
+
+
+async def test_default_call_no_category_regresses_to_seven(db_session):
+    """Guard: with the legacy DEFAULT_MAP_CATEGORIES gate intact, the
+    Phase 1 seven-row default still holds even after category-filter
+    plumbing was rewritten."""
+    await _seed_dummy(db_session)
+    filters = PlaceFilter(radius_km=50.0)  # no category param
+    _, total = await get_places_nearby(
+        db_session, _LAT, _LNG, filters, include_unverified=False,
+    )
+    assert total == 7
 
 
 async def test_helper_two_calls_create_two_pairs(db_session):

@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.models.place import Place, PlaceCategory
+from app.models.place import Place
 from app.models.user import User
 from app.schemas.place import PlaceCreate, PlaceUpdate, PlaceResponse, PlaceListResponse, PlaceFilter
 from app.services.auth import get_current_user
@@ -24,7 +24,9 @@ router = APIRouter(prefix="/places", tags=["places"])
 async def get_nearby_places(
     lat: float = Query(..., ge=-90, le=90),
     lng: float = Query(..., ge=-180, le=180),
-    category: PlaceCategory | None = None,
+    # Free-form: legacy "restaurant"/"cafe" or new Category.code.
+    # Service layer branches; unknown codes yield an empty result set.
+    category: str | None = None,
     has_parking: bool | None = None,
     radius_km: float = Query(default=5.0, le=50.0),
     lang: str = Query(default="ko"),

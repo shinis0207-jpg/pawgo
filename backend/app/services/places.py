@@ -2,17 +2,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, Float
 from sqlalchemy.orm import selectinload
 
+from app.models.category import Category
 from app.models.place import Place, PlaceCategory, VisibilityStatus
 from app.models.pet_policy import PetPolicy, PetAllowedStatus, VerificationStatus
 from app.models.vet import VetHospital
 from app.schemas.place import PlaceFilter
 
 
-# Categories shown by default on the main map (Phase 1 MVP).
+# Legacy default-map gate. Kept on the scalar Place.category column on
+# purpose: it protects the 362 untagged rows that were imported before
+# the multi-tag system existed — they have places.category='restaurant'
+# but no place_categories rows, so a tag-based gate would drop them.
+# Revisit (and probably delete) once the scalar column itself is dropped.
 DEFAULT_MAP_CATEGORIES: tuple[PlaceCategory, ...] = (
     PlaceCategory.RESTAURANT,
     PlaceCategory.CAFE,
 )
+
+# Values of `filters.category` that still take the legacy scalar path.
+# Anything else is treated as a Category.code and routed through the
+# place_categories association table.
+_LEGACY_SCALAR_CATEGORY_VALUES: frozenset[str] = frozenset({"restaurant", "cafe"})
 
 # Pet-allowed statuses that may appear on the main map (i.e., not unknown / not_allowed).
 DEFAULT_MAP_PET_ALLOWED = (PetAllowedStatus.ALLOWED, PetAllowedStatus.LIMITED)
@@ -102,12 +112,20 @@ async def get_places_nearby(
     if not include_unverified:
         query = query.where(PetPolicy.verification_status.in_(DEFAULT_MAP_VERIFIED))
 
-    # Category filter narrows further (must still be in the default categories).
+    # Category filter narrows further. Two paths kept side-by-side:
+    #   - "restaurant" / "cafe": legacy scalar column path so older app
+    #     builds that still send the enum values keep working unchanged.
+    #   - anything else: treated as a Category.code and routed through
+    #     place_categories. An unknown code naturally yields 0 rows.
+    # The outer DEFAULT_MAP_CATEGORIES gate above still applies, so the
+    # tag path is effectively "restaurant/cafe rows also tagged with X".
     if filters.category:
-        if filters.category not in DEFAULT_MAP_CATEGORIES:
-            # Caller explicitly requested a hidden category — default map never shows it.
-            return [], 0
-        query = query.where(Place.category == filters.category)
+        if filters.category in _LEGACY_SCALAR_CATEGORY_VALUES:
+            query = query.where(Place.category == filters.category)
+        else:
+            query = query.where(
+                Place.categories.any(Category.code == filters.category)
+            )
 
     if filters.has_parking is not None:
         query = query.where(Place.has_parking == filters.has_parking)
@@ -148,6 +166,9 @@ async def get_emergency_vets(
     lng: float,
     radius_km: float = 10.0,
 ) -> list[Place]:
+    # Deliberately untouched by the multi-tag migration: VET is not in
+    # the new 23-category set, so this endpoint keeps relying on the
+    # legacy scalar Place.category column until vets get their own path.
     distance_km = _haversine_km(lat, lng).label("distance_km")
 
     result = await db.execute(
@@ -193,10 +214,18 @@ def place_to_response(place: Place, lang: str = "ko") -> dict:
             "confidence_score": policy.confidence_score,
             "last_verified_at": policy.last_verified_at,
         }
+    # New multi-tag exposure, sorted by the seed order so the frontend
+    # can render tags in a stable, category-panel-friendly order without
+    # doing its own sort. Legacy scalar `category` is kept alongside for
+    # backward compatibility with older clients.
+    categories_sorted = sorted(
+        place.categories or [], key=lambda c: c.sort_order
+    )
     return {
         "id": place.id,
         "name": translation.name if translation else place.name,
         "category": place.category,
+        "categories": [c.code for c in categories_sorted],
         "latitude": place.latitude,
         "longitude": place.longitude,
         "address": translation.address if translation and translation.address else place.address,
