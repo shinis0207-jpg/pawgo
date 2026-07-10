@@ -11,9 +11,29 @@ interface Props {
   onPress: () => void;
 }
 
+// Cap on how many tag labels a card badge renders inline. Overflow
+// collapses into a " +N" suffix so long tag lists (e.g. korean +
+// bbq_grill + pet_specialized …) don't blow past the card width.
+const CARD_MAX_TAGS = 3;
+
 export function PlaceCard({ place, onPress }: Props) {
   const { t } = useTranslation();
   const categoryColor = categoryColors[place.category] ?? Colors.primary;
+
+  // Multi-tag badge label. Uses place.categories when the backend
+  // populated it; falls back to the legacy scalar category label so
+  // pre-migration rows still render something meaningful.
+  const tagCodes = place.categories ?? [];
+  const badgeLabel =
+    tagCodes.length > 0
+      ? (() => {
+          const shown = tagCodes.slice(0, CARD_MAX_TAGS).map((c) => t(`categories.${c}`));
+          const overflow = tagCodes.length - shown.length;
+          return overflow > 0
+            ? `${shown.join(" · ")} +${overflow}`
+            : shown.join(" · ");
+        })()
+      : t(`categories.${place.category}`);
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
@@ -24,7 +44,9 @@ export function PlaceCard({ place, onPress }: Props) {
           <CategoryPlaceholder category={place.category} size="small" />
         )}
         <View style={[styles.categoryBadge, { backgroundColor: categoryColor }]}>
-          <Text style={styles.categoryText}>{t(`categories.${place.category}`)}</Text>
+          <Text style={styles.categoryText} numberOfLines={1}>
+            {badgeLabel}
+          </Text>
         </View>
         {place.is_verified && (
           <View style={styles.verifiedBadge}>

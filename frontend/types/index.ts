@@ -136,6 +136,11 @@ export interface Place {
   id: number;
   name: string;
   category: PlaceCategory;
+  // Multi-tag category codes ordered by the backend's Category.sort_order.
+  // Optional because older legacy fixtures / cached responses predate the
+  // field; treat missing as `[]`. Kept alongside the legacy `category`
+  // scalar for backward-compatible rendering.
+  categories?: string[];
   latitude: number;
   longitude: number;
   address: string;
@@ -206,7 +211,10 @@ export interface Review {
 }
 
 export interface PlaceFilter {
-  category?: PlaceCategory;
+  // Free-form so callers can pass either a legacy scalar ("restaurant"
+  // / "cafe") or a new Category.code ("korean", ...). Backend routes
+  // the two paths internally; unknown codes yield empty results.
+  category?: string;
   max_weight_kg?: number;
   allows_indoor?: boolean;
   has_parking?: boolean;

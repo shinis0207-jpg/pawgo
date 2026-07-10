@@ -90,6 +90,25 @@ export default function PlaceDetailScreen() {
 
   const categoryColor = categoryColors[place.category] ?? Colors.primary;
 
+  // Same badge policy as PlaceCard: prefer place.categories (multi-tag,
+  // sort_order-ordered), fall back to the legacy scalar. Detail screen
+  // has more horizontal room than a card, but we still cap the visible
+  // count so a place with every possible tag doesn't take over the title.
+  const DETAIL_MAX_TAGS = 3;
+  const tagCodes = place.categories ?? [];
+  const badgeLabel =
+    tagCodes.length > 0
+      ? (() => {
+          const shown = tagCodes
+            .slice(0, DETAIL_MAX_TAGS)
+            .map((c) => t(`categories.${c}`));
+          const overflow = tagCodes.length - shown.length;
+          return overflow > 0
+            ? `${shown.join(" · ")} +${overflow}`
+            : shown.join(" · ");
+        })()
+      : t(`categories.${place.category}`);
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView>
@@ -108,7 +127,9 @@ export default function PlaceDetailScreen() {
             <View style={{ flex: 1 }}>
               <View style={styles.badges}>
                 <View style={[styles.categoryBadge, { backgroundColor: categoryColor }]}>
-                  <Text style={styles.categoryBadgeText}>{t(`categories.${place.category}`)}</Text>
+                  <Text style={styles.categoryBadgeText} numberOfLines={1}>
+                    {badgeLabel}
+                  </Text>
                 </View>
               </View>
               <Text style={styles.placeName}>{place.name}</Text>
