@@ -52,6 +52,12 @@ const VIEWPORT_DEBOUNCE_MS = 250;
 const VIEWPORT_MARGIN = 1.3;
 const MIN_RADIUS_KM = 0.3;
 const MAX_RADIUS_KM = 50;
+// Fixed search radius applied when searchSource === 'location' (i.e.,
+// the my-location button intent). Viewport mode still derives radius
+// from bounds; this constant only governs the GPS-anchored path so
+// tapping my-location doesn't inherit a tight zoom-in radius from the
+// previous viewport and hide nearby places from the list.
+const LOCATION_SEARCH_RADIUS_KM = 5;
 const PAGE_SIZE = 100;
 const IDLE_FALLBACK_MS = 10_000;
 const IDLE_FALLBACK_DRIFT_KM = 0.5;
@@ -246,7 +252,18 @@ export default function MapScreen() {
     searchSource === "location"
       ? (location ?? null)
       : (debouncedViewport?.center ?? location ?? null);
-  const searchRadiusKm = debouncedViewport?.radiusKm ?? 5;
+  // Radius mirrors the same source split as the center. In location
+  // mode the fixed policy radius governs — the previous viewport's
+  // tight zoom-in must NOT bleed into a GPS-anchored search (which
+  // was the "my-location button hides nearby places" bug). Viewport
+  // mode keeps deriving radius from bounds via computeRadiusFromBounds
+  // (already clamped to [MIN_RADIUS_KM, MAX_RADIUS_KM]); the fallback
+  // to LOCATION_SEARCH_RADIUS_KM covers the very first render when
+  // debouncedViewport hasn't been seeded yet.
+  const searchRadiusKm =
+    searchSource === "location"
+      ? LOCATION_SEARCH_RADIUS_KM
+      : (debouncedViewport?.radiusKm ?? LOCATION_SEARCH_RADIUS_KM);
 
   // Defensive mirror of the confirmed search center in a ref. React
   // state drives `useNearbyPlaces` (via queryKey) so state is
