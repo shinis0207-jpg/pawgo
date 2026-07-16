@@ -19,6 +19,7 @@ function buildMapHtml(
   apiKey: string,
   lat: number,
   lng: number,
+  mountId: number,
 ): string {
   // markers are intentionally NOT inlined into the HTML — they are injected
   // via webViewRef.injectJavaScript(updateMarkers(...)) from a useEffect on
@@ -59,10 +60,30 @@ function buildMapHtml(
 <body>
   <div id="map"></div>
   <script>
+    // Stable-per-mount identifier injected by the RN side. Every event
+    // this page ships back to RN includes this value so the RN handler
+    // can drop messages that belong to a superseded mount whose
+    // native WebView hasn't been torn down yet.
+    var __mountId = ${mountId};
     var map = null;
     var mapLoaded = false;
     var pendingMarkers = null;
     var currentMarkers = [];
+
+    // Post-mount relayout+setCenter latch. WebView frames on iOS
+    // WKWebView (and some Android setups) are 0x0 at the moment
+    // kakao.maps.load fires — the map is created against a degenerate
+    // viewport and later idles report a ~886m-off center. The
+    // ResizeObserver registered further below waits for the frame to
+    // reach a valid size, then calls relayout() + setCenter(req) once
+    // to align the SDK's internal coordinate system with the real
+    // frame. All state is local to this HTML instance so a remount
+    // starts clean; RN's mountId gate on the resulting idle is unchanged.
+    // correctionApplied is the one-shot execution latch — do not
+    // confuse it with anything else that once shared the name.
+    var initialW = 0, initialH = 0;
+    var correctionApplied = false;
+    var userInteracted = false;
 
     kakao.maps.load(function() {
       var container = document.getElementById('map');
@@ -71,17 +92,106 @@ function buildMapHtml(
         level: 5
       });
 
+      // Capture container size at map creation time and, only
+      // if either dimension is 0, register a ResizeObserver that
+      // waits for the frame to become valid, then applies one-shot
+      // relayout+setCenter to realign the SDK's internal viewport.
+      // reqLat/reqLng are the SAME template-substituted values the
+      // Map was constructed with — DO NOT reach for RN state here,
+      // the mount that created this HTML has ownership of that
+      // coordinate for its lifetime.
+      initialW = container.offsetWidth;
+      initialH = container.offsetHeight;
+      if (initialW === 0 || initialH === 0) {
+        var _reqLat = ${lat};
+        var _reqLng = ${lng};
+        var ro = new ResizeObserver(function() {
+          if (correctionApplied) return;
+          if (container.offsetWidth === 0 || container.offsetHeight === 0) return;
+          if (userInteracted) {
+            // User already started driving the map — do NOT snap the
+            // camera back to the mount's requested coord. Latch and
+            // disconnect to close out this mount's correction cycle.
+            correctionApplied = true;
+            ro.disconnect();
+            return;
+          }
+          // Latch BEFORE the mutation so an exception inside the try
+          // can never let a subsequent observer tick re-enter and
+          // double-apply the correction. Observer is also disconnected
+          // synchronously so no callback is queued after this point.
+          correctionApplied = true;
+          ro.disconnect();
+          try {
+            // Order matters: relayout() reconciles the SDK's internal
+            // tile grid with the current container size FIRST, then
+            // setCenter() reapplies the requested coordinate on top
+            // of the corrected grid. Reversing the order would move
+            // the center within the still-degenerate grid.
+            map.relayout();
+            map.setCenter(new kakao.maps.LatLng(_reqLat, _reqLng));
+          } catch (e) {}
+        });
+        ro.observe(document.documentElement);
+      }
+
       mapLoaded = true;
 
-      // 지도 이동 완료 → RN에 중심 좌표 전송
+      // 지도 이동/줌 완료 → RN에 중심 + 뷰포트 bounds 전송.
+      // bounds는 RN 쪽 viewport-based 검색 반경 계산의 유일한 입력이므로
+      // idle마다 반드시 실을 것. Kakao level 등 SDK-specific 값은 안 넘긴다.
       kakao.maps.event.addListener(map, 'idle', function() {
         var c = map.getCenter();
-        sendToRN({ type: 'regionChange', lat: c.getLat(), lng: c.getLng() });
+        var b = map.getBounds();
+        var sw = b.getSouthWest();
+        var ne = b.getNorthEast();
+        // DEBUG [track] — a second, log-only message so the RN side
+        // can see the SDK's current-tick level alongside its reported
+        // center. Kept separate from regionChange so search-path
+        // consumers stay untouched.
+        sendToRN({
+          type: 'debug_idle',
+          mountId: __mountId,
+          lat: c.getLat(),
+          lng: c.getLng(),
+          level: map.getLevel(),
+        });
+        sendToRN({
+          type: 'regionChange',
+          mountId: __mountId,
+          lat: c.getLat(),
+          lng: c.getLng(),
+          bounds: {
+            sw: { lat: sw.getLat(), lng: sw.getLng() },
+            ne: { lat: ne.getLat(), lng: ne.getLng() },
+          },
+        });
       });
 
       // 지도 빈 곳 클릭 → RN에 알려서 미니 카드를 닫게 함
       kakao.maps.event.addListener(map, 'click', function() {
         sendToRN({ type: 'mapClick' });
+      });
+
+      // 사용자 조작 시작 신호. Kakao의 idle 이벤트는 사용자 팬과 SDK 정착을
+      // 구분하지 않으므로, "사용자가 지금 지도를 직접 움직이기 시작했다"는
+      // 신호는 오직 dragstart/zoom_start에서만 얻을 수 있다. RN 쪽은 이걸
+      // 받아 검색 좌표 소스를 GPS → viewport로 전환한다.
+      kakao.maps.event.addListener(map, 'dragstart', function() {
+        userInteracted = true;
+        sendToRN({
+          type: 'userInteractionStart',
+          interactionType: 'drag',
+          mountId: __mountId,
+        });
+      });
+      kakao.maps.event.addListener(map, 'zoom_start', function() {
+        userInteracted = true;
+        sendToRN({
+          type: 'userInteractionStart',
+          interactionType: 'zoom',
+          mountId: __mountId,
+        });
       });
 
       // markers are never inlined; they arrive via injectJavaScript after the
@@ -158,7 +268,7 @@ function buildMapHtml(
 }
 
 const KakaoMapProvider = forwardRef<WebView, MapViewProps>(function KakaoMapProvider(
-  { initialLatitude, initialLongitude, markers, onMarkerPress, onRegionChange, onMapPress },
+  { initialLatitude, initialLongitude, mountId, markers, onMarkerPress, onRegionChange, onMapPress, onUserInteractionStart },
   forwardedRef
 ) {
   const webViewRef = useRef<WebView>(null);
@@ -207,17 +317,49 @@ const KakaoMapProvider = forwardRef<WebView, MapViewProps>(function KakaoMapProv
       try {
         const msg = JSON.parse(event.nativeEvent.data);
         if (msg.type === "markerPress") onMarkerPress(msg.marker);
-        if (msg.type === "regionChange") onRegionChange(msg.lat, msg.lng);
+        if (msg.type === "regionChange") {
+          onRegionChange({
+            lat: msg.lat,
+            lng: msg.lng,
+            bounds: msg.bounds,
+            // Pass through so the RN caller can gate stale idles from
+            // a superseded MapView instance. The value is the mountId
+            // this HTML was built with — different mounts produce
+            // different HTML and therefore different embedded mountId.
+            mountId: msg.mountId,
+          });
+        }
+        if (msg.type === "debug_idle") {
+          // DEBUG [track] — see the sendToRN companion above. Prints
+          // the SDK-reported center + zoom level per idle so the RN
+          // side of the trace can be correlated with the idle event
+          // that actually fired on the map. mountId included so a
+          // late idle from a superseded WebView can be distinguished
+          // from a fresh one in the log stream (the payload has
+          // always carried mountId; only the printed form was missing it).
+          // eslint-disable-next-line no-console
+          console.log(
+            `[track] kakao idle: mountId=${msg.mountId} center=(${Number(msg.lat).toFixed(6)},${Number(msg.lng).toFixed(6)}) level=${msg.level}`,
+          );
+        }
         if (msg.type === "mapClick") onMapPress?.();
+        if (msg.type === "userInteractionStart") {
+          onUserInteractionStart?.({
+            interactionType: msg.interactionType,
+            mountId: msg.mountId,
+          });
+        }
       } catch {}
     },
-    [onMarkerPress, onRegionChange, onMapPress]
+    [onMarkerPress, onRegionChange, onMapPress, onUserInteractionStart]
   );
 
-  // html is now ONLY a function of (apiKey, initialLatitude, initialLongitude).
-  // markers are injected separately so marker updates don't trigger a WebView
-  // reload (which used to snap the camera back to initialLatitude/Longitude).
-  const html = buildMapHtml(apiKey, initialLatitude, initialLongitude);
+  // html is a function of (apiKey, initialLatitude, initialLongitude,
+  // mountId). markers are injected separately so marker updates don't
+  // trigger a WebView reload (which used to snap the camera back to
+  // initialLatitude/Longitude). mountId is baked in at build time so
+  // every idle sent from this HTML carries the same fixed id.
+  const html = buildMapHtml(apiKey, initialLatitude, initialLongitude, mountId);
 
   const setRef = (node: WebView | null) => {
     (webViewRef as React.MutableRefObject<WebView | null>).current = node;

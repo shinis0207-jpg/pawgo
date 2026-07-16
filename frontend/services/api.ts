@@ -101,10 +101,12 @@ export const placesApi = {
   getNearby: (
     lat: number,
     lng: number,
-    filters: PlaceFilter & { lang?: string; page?: number; size?: number }
+    filters: PlaceFilter & { lang?: string; page?: number; size?: number },
+    signal?: AbortSignal,
   ) =>
     apiClient.get<PlaceListResponse>("/places/nearby", {
       params: { lat, lng, ...filters },
+      signal,
     }),
 
   get: (id: number, lang?: string) =>

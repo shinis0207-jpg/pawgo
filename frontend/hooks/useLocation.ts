@@ -31,6 +31,12 @@ export function useLocation() {
       setPermissionGranted(false);
       setLocation(DEFAULT_LOCATION);
       setIsLoading(false);
+      // eslint-disable-next-line no-console
+      console.log(
+        `[loc] final=(${DEFAULT_LOCATION.latitude.toFixed(6)},${DEFAULT_LOCATION.longitude.toFixed(6)}) source=default (permission-denied)`,
+      );
+      // eslint-disable-next-line no-console
+      console.log(`[loc] refreshLocation done`);
       return;
     }
     setPermissionGranted(true);
@@ -42,19 +48,41 @@ export function useLocation() {
     // GPS, stranding the camera on that stale point. Best-effort;
     // failure or ineligible cache falls through to stage 2 silently.
     let hasCachedFix = false;
+    // DEBUG: temporary local mirror of Stage 1's coord so the catch
+    // block below can log the "cached-kept" fallback source without
+    // reaching outside the try scope. No behavior change.
+    let stage1Coord: Coordinates | null = null;
+    // eslint-disable-next-line no-console
+    console.log(`[loc] stage1 requesting (maxAge=15s, accuracy<=50m)`);
     try {
       const cached = await Location.getLastKnownPositionAsync({
         maxAge: 15_000,
         requiredAccuracy: 50,
       });
       if (cached) {
+        const ageMs = Date.now() - cached.timestamp;
+        // eslint-disable-next-line no-console
+        console.log(
+          `[loc] stage1 cached=(${cached.coords.latitude.toFixed(6)},${cached.coords.longitude.toFixed(6)}) age=${ageMs}ms accuracy=${cached.coords.accuracy}m`,
+        );
         setLocation({
           latitude: cached.coords.latitude,
           longitude: cached.coords.longitude,
         });
+        stage1Coord = {
+          latitude: cached.coords.latitude,
+          longitude: cached.coords.longitude,
+        };
         hasCachedFix = true;
+      } else {
+        // eslint-disable-next-line no-console
+        console.log(`[loc] stage1 no-cached (returned null)`);
       }
-    } catch {
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[loc] stage1 no-cached (exception name=${err instanceof Error ? err.name : String(err)})`,
+      );
       // ignore — fall through to stage 2
     }
 
@@ -62,6 +90,9 @@ export function useLocation() {
     // getCurrentPositionAsync has no native timeout option. High
     // accuracy: the my-location button is worth the extra fix time
     // to avoid the "close but wrong" pin outdoors.
+    // eslint-disable-next-line no-console
+    console.log(`[loc] stage2 requesting (accuracy=High, timeout=10s)`);
+    const stage2StartAt = Date.now();
     try {
       const loc = await Promise.race<Location.LocationObject>([
         Location.getCurrentPositionAsync({
@@ -71,15 +102,39 @@ export function useLocation() {
           setTimeout(() => reject(new Error("location_timeout")), 10_000),
         ),
       ]);
+      const elapsed = Date.now() - stage2StartAt;
+      // eslint-disable-next-line no-console
+      console.log(
+        `[loc] stage2 success=(${loc.coords.latitude.toFixed(6)},${loc.coords.longitude.toFixed(6)}) accuracy=${loc.coords.accuracy}m elapsed=${elapsed}ms`,
+      );
       setLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
-    } catch {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[loc] final=(${loc.coords.latitude.toFixed(6)},${loc.coords.longitude.toFixed(6)}) source=precise`,
+      );
+    } catch (err) {
+      const elapsed = Date.now() - stage2StartAt;
+      const errName = err instanceof Error ? err.name : String(err);
+      // eslint-disable-next-line no-console
+      console.log(`[loc] stage2 fail err=${errName} elapsed=${elapsed}ms`);
       if (!hasCachedFix) {
         setLocation(DEFAULT_LOCATION);
         setError(t("map.location_error"));
+        // eslint-disable-next-line no-console
+        console.log(
+          `[loc] final=(${DEFAULT_LOCATION.latitude.toFixed(6)},${DEFAULT_LOCATION.longitude.toFixed(6)}) source=default`,
+        );
+      } else if (stage1Coord) {
+        // eslint-disable-next-line no-console
+        console.log(
+          `[loc] final=(${stage1Coord.latitude.toFixed(6)},${stage1Coord.longitude.toFixed(6)}) source=cached-kept`,
+        );
       }
       // If we had a cached fix, leave it as the displayed location.
     } finally {
       setIsLoading(false);
+      // eslint-disable-next-line no-console
+      console.log(`[loc] refreshLocation done`);
     }
   }, [t]);
 

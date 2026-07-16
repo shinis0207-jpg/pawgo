@@ -63,6 +63,11 @@
     "find_nearby": "주변 장소 찾기",
     "emergency_vet": "긴급 동물병원",
     "no_places": "주변에 장소가 없습니다",
+    "no_places_in_view": "현재 지도 범위에 해당하는 곳이 없어요. 지도를 넓게 보거나 필터를 조정해 보세요.",
+    "load_error": "장소를 불러오지 못했어요.",
+    "retry": "다시 시도",
+    "loading": "장소를 불러오는 중",
+    "updating": "업데이트 중",
     "location_required": "위치 권한이 필요합니다",
     "search_this_area": "이 지역에서 다시 검색",
     "my_location": "내 위치",
@@ -106,6 +111,12 @@
     "large_group": "대형·단체",
     "fine_dining": "파인다이닝",
     "pet_specialized": "반려동물 특화"
+  },
+  "categoryGroups": {
+    "food": "음식",
+    "coffee_dessert": "카페·디저트",
+    "drink": "술집",
+    "space_tag": "특별한 공간"
   },
   "filter": {
     "title": "필터",

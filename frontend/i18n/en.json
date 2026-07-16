@@ -63,6 +63,11 @@
     "find_nearby": "Find Nearby",
     "emergency_vet": "Emergency Vet",
     "no_places": "No places found nearby",
+    "no_places_in_view": "No places match this map area. Zoom out or adjust your filters.",
+    "load_error": "Couldn't load places.",
+    "retry": "Retry",
+    "loading": "Loading places…",
+    "updating": "Updating…",
     "location_required": "Location permission required",
     "search_this_area": "Search this area",
     "my_location": "My location",
@@ -106,6 +111,12 @@
     "large_group": "Large Groups",
     "fine_dining": "Fine Dining",
     "pet_specialized": "Pet Specialized"
+  },
+  "categoryGroups": {
+    "food": "Food",
+    "coffee_dessert": "Cafe & Dessert",
+    "drink": "Drinks",
+    "space_tag": "Special Spaces"
   },
   "filter": {
     "title": "Filter",

@@ -70,7 +70,11 @@ export const MVP_SHOW_PROFILE_EDIT = false;
  */
 export const MVP_VISIBLE_FILTERS = {
   category: true,
-  radius: true,
+  // Phase 2 map screen now derives the search radius from the visible
+  // viewport (see app/(tabs)/index.tsx). A separate FilterSheet radius
+  // chip would fight that source of truth — hide it. Flip back to true
+  // if we re-introduce a user-forced override.
+  radius: false,
   weight: false,
   indoor_outdoor: false,
   parking: false,

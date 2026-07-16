@@ -17,14 +17,9 @@ import { MapViewProps } from "../types";
 // import RNMapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 // ─────────────────────────────────────────────────────────────────────────
 
-export default function GoogleMapProvider({
-  initialLatitude,
-  initialLongitude,
-  markers,
-  onMarkerPress,
-  onRegionChange,
-}: MapViewProps) {
+export default function GoogleMapProvider(_props: MapViewProps) {
   // ── 실제 구현 시 이 블록으로 교체 ────────────────────────────────────────
+  // const { initialLatitude, initialLongitude, markers, onMarkerPress, onRegionChange } = _props;
   // return (
   //   <RNMapView
   //     provider={PROVIDER_GOOGLE}
@@ -35,7 +30,12 @@ export default function GoogleMapProvider({
   //       latitudeDelta: 0.05,
   //       longitudeDelta: 0.05,
   //     }}
-  //     onRegionChangeComplete={(r) => onRegionChange(r.latitude, r.longitude)}
+  //     onRegionChangeComplete={(r) => {
+  //       // rn-maps supplies latitudeDelta/longitudeDelta; derive SW/NE from those.
+  //       const sw = { lat: r.latitude - r.latitudeDelta / 2, lng: r.longitude - r.longitudeDelta / 2 };
+  //       const ne = { lat: r.latitude + r.latitudeDelta / 2, lng: r.longitude + r.longitudeDelta / 2 };
+  //       onRegionChange({ lat: r.latitude, lng: r.longitude, bounds: { sw, ne } });
+  //     }}
   //   >
   //     {markers.map((marker) => (
   //       <Marker
