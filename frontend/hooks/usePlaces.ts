@@ -38,103 +38,66 @@ export function useNearbyPlaces(
       };
       const lat = location!.latitude;
       const lng = location!.longitude;
-      const rKm = filters.radius_km;
-      // DEBUG (temporary — remove after fetch lifecycle is verified on
-      // device). Prefixed `[nearby]` so a single grep removes all of
-      // them together.
-      // eslint-disable-next-line no-console
-      console.log(
-        `[nearby] fetch start (${lat.toFixed(6)},${lng.toFixed(6)}) r=${rKm}`,
+      const first = await placesApi.getNearby(
+        lat,
+        lng,
+        { ...baseFilters, page },
+        signal,
       );
-      try {
-        const first = await placesApi.getNearby(
-          lat,
-          lng,
-          { ...baseFilters, page },
-          signal,
-        );
-        const firstBody = first.data;
-        const total = firstBody.total ?? 0;
-        const totalPages = Math.max(1, Math.ceil(total / size));
-        const endPage = Math.min(MAX_PAGES, totalPages);
-        if (endPage <= page) {
-          // eslint-disable-next-line no-console
-          console.log(
-            `[nearby] fetch success items=${firstBody.items.length} total=${total}`,
-          );
-          return firstBody;
-        }
-
-        const restPages: number[] = [];
-        for (let p = page + 1; p <= endPage; p += 1) restPages.push(p);
-        const rest = await Promise.allSettled(
-          restPages.map((p) =>
-            placesApi.getNearby(
-              lat,
-              lng,
-              { ...baseFilters, page: p },
-              signal,
-            ),
-          ),
-        );
-
-        const failedPages: number[] = [];
-        const mergedItems = [...firstBody.items];
-        rest.forEach((r, i) => {
-          const pageNum = restPages[i];
-          if (r.status === "fulfilled") {
-            mergedItems.push(...r.value.data.items);
-          } else {
-            // Aborted requests are expected during viewport churn and
-            // shouldn't be logged as failures — RQ will start the next
-            // fetch immediately. Only warn on other rejection reasons.
-            const reason: unknown = r.reason;
-            const isAbort =
-              reason instanceof Error &&
-              (reason.name === "CanceledError" ||
-                reason.name === "AbortError" ||
-                /canceled/i.test(reason.message ?? ""));
-            if (!isAbort) failedPages.push(pageNum);
-          }
-        });
-        if (failedPages.length > 0) {
-          console.warn(
-            `[useNearbyPlaces] partial fetch: pages ${failedPages.join(", ")} failed; ` +
-              `showing ${mergedItems.length}/${total} places.`,
-          );
-        }
-        // eslint-disable-next-line no-console
-        console.log(
-          `[nearby] fetch success items=${mergedItems.length} total=${total}`,
-        );
-        return {
-          ...firstBody,
-          items: mergedItems,
-          // `total` stays the server's ground truth even if we couldn't
-          // collect all pages — the header count means "in this radius"
-          // not "in what we rendered".
-          total,
-        };
-      } catch (err) {
-        const isAbort =
-          err instanceof Error &&
-          (err.name === "CanceledError" ||
-            err.name === "AbortError" ||
-            /canceled/i.test(err.message ?? ""));
-        if (isAbort) {
-          // eslint-disable-next-line no-console
-          console.log(
-            `[nearby] fetch abort (${lat.toFixed(6)},${lng.toFixed(6)})`,
-          );
-        } else {
-          const msg = err instanceof Error ? err.message : String(err);
-          // eslint-disable-next-line no-console
-          console.log(
-            `[nearby] fetch error (${lat.toFixed(6)},${lng.toFixed(6)}) msg=${msg}`,
-          );
-        }
-        throw err;
+      const firstBody = first.data;
+      const total = firstBody.total ?? 0;
+      const totalPages = Math.max(1, Math.ceil(total / size));
+      const endPage = Math.min(MAX_PAGES, totalPages);
+      if (endPage <= page) {
+        return firstBody;
       }
+
+      const restPages: number[] = [];
+      for (let p = page + 1; p <= endPage; p += 1) restPages.push(p);
+      const rest = await Promise.allSettled(
+        restPages.map((p) =>
+          placesApi.getNearby(
+            lat,
+            lng,
+            { ...baseFilters, page: p },
+            signal,
+          ),
+        ),
+      );
+
+      const failedPages: number[] = [];
+      const mergedItems = [...firstBody.items];
+      rest.forEach((r, i) => {
+        const pageNum = restPages[i];
+        if (r.status === "fulfilled") {
+          mergedItems.push(...r.value.data.items);
+        } else {
+          // Aborted requests are expected during viewport churn and
+          // shouldn't be logged as failures — RQ will start the next
+          // fetch immediately. Only warn on other rejection reasons.
+          const reason: unknown = r.reason;
+          const isAbort =
+            reason instanceof Error &&
+            (reason.name === "CanceledError" ||
+              reason.name === "AbortError" ||
+              /canceled/i.test(reason.message ?? ""));
+          if (!isAbort) failedPages.push(pageNum);
+        }
+      });
+      if (failedPages.length > 0) {
+        console.warn(
+          `[useNearbyPlaces] partial fetch: pages ${failedPages.join(", ")} failed; ` +
+            `showing ${mergedItems.length}/${total} places.`,
+        );
+      }
+      return {
+        ...firstBody,
+        items: mergedItems,
+        // `total` stays the server's ground truth even if we couldn't
+        // collect all pages — the header count means "in this radius"
+        // not "in what we rendered".
+        total,
+      };
     },
     enabled: !!location,
     staleTime: 2 * 60 * 1000,

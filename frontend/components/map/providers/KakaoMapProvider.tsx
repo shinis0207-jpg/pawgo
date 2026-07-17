@@ -145,17 +145,6 @@ function buildMapHtml(
         var b = map.getBounds();
         var sw = b.getSouthWest();
         var ne = b.getNorthEast();
-        // DEBUG [track] — a second, log-only message so the RN side
-        // can see the SDK's current-tick level alongside its reported
-        // center. Kept separate from regionChange so search-path
-        // consumers stay untouched.
-        sendToRN({
-          type: 'debug_idle',
-          mountId: __mountId,
-          lat: c.getLat(),
-          lng: c.getLng(),
-          level: map.getLevel(),
-        });
         sendToRN({
           type: 'regionChange',
           mountId: __mountId,
@@ -328,19 +317,6 @@ const KakaoMapProvider = forwardRef<WebView, MapViewProps>(function KakaoMapProv
             // different HTML and therefore different embedded mountId.
             mountId: msg.mountId,
           });
-        }
-        if (msg.type === "debug_idle") {
-          // DEBUG [track] — see the sendToRN companion above. Prints
-          // the SDK-reported center + zoom level per idle so the RN
-          // side of the trace can be correlated with the idle event
-          // that actually fired on the map. mountId included so a
-          // late idle from a superseded WebView can be distinguished
-          // from a fresh one in the log stream (the payload has
-          // always carried mountId; only the printed form was missing it).
-          // eslint-disable-next-line no-console
-          console.log(
-            `[track] kakao idle: mountId=${msg.mountId} center=(${Number(msg.lat).toFixed(6)},${Number(msg.lng).toFixed(6)}) level=${msg.level}`,
-          );
         }
         if (msg.type === "mapClick") onMapPress?.();
         if (msg.type === "userInteractionStart") {

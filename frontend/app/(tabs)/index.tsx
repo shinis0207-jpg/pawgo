@@ -186,14 +186,6 @@ export default function MapScreen() {
   // that is non-null. Ref rather than state so it never triggers a
   // render on its own and never leaks across renders.
   const bypassNextDebounceRef = useRef(false);
-  // DEBUG (temporary — remove after "current-location jump" bug is
-  // classified). Mirrors of `location` and the timestamp of the last
-  // recenterSeq bump so the [track] log inside handleRegionChange can
-  // read fresh values via ref without recreating the callback's
-  // useCallback([])-stable closure. Set via effects so the ref never
-  // trails the committed state by more than a render.
-  const locationRef = useRef<Coordinates | null>(null);
-  const recenterBumpAtRef = useRef<number | null>(null);
   // Stale-idle gate. `recenterSeq` doubles as the MapView's mountId
   // (see the `<MapView mountId={recenterSeq}>` prop below): the HTML
   // built for a given mount embeds this exact value and every idle
@@ -277,15 +269,11 @@ export default function MapScreen() {
     confirmedSearchCenterRef.current = searchCenter;
   }, [searchCenter]);
 
-  // DEBUG (temporary — remove with the [track] logs): keep the two
-  // refs above (locationRef, recenterBumpAtRef) up to date so the
-  // handleRegionChange trace can read them without becoming a
-  // location/recenterSeq-dependent closure.
+  // Echo recenterSeq into the ref so handleRegionChange's stale-idle
+  // gate can read the current value without becoming a state-dependent
+  // closure. Redundant with the synchronous write in handleMyLocation
+  // (defensive invariant — do not remove).
   useEffect(() => {
-    locationRef.current = location;
-  }, [location]);
-  useEffect(() => {
-    recenterBumpAtRef.current = Date.now();
     recenterSeqRef.current = recenterSeq;
   }, [recenterSeq]);
 
@@ -318,44 +306,6 @@ export default function MapScreen() {
     refetch,
   } = useNearbyPlaces(searchCenter, activeFilters, 1, PAGE_SIZE);
   const { data: emergencyVets } = useEmergencyVets(searchCenter);
-
-  // DEBUG (temporary — remove after fetch pipeline is verified on
-  // device). `search` = debounced coord fed to queryKey; `map` = raw
-  // live viewport center. During the 250ms debounce window they can
-  // diverge briefly (that's the whole point of the debounce). After
-  // the window settles they must match. `placeholder` tells the
-  // reader whether `data` is still a stale carryover from a previous
-  // query — a `true` reading after fetch settle is a red flag.
-  useEffect(() => {
-    if (!searchCenter) return;
-    const mapC = viewport?.center;
-    const s = `${searchCenter.latitude.toFixed(6)}, ${searchCenter.longitude.toFixed(6)}`;
-    const m = mapC
-      ? `${mapC.latitude.toFixed(6)}, ${mapC.longitude.toFixed(6)}`
-      : "null";
-    // eslint-disable-next-line no-console
-    console.log(
-      `[nearby] search (${s}) / map (${m}) placeholder=${isPlaceholderData}`,
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchCenter, activeFilters, isPlaceholderData]);
-
-  // DEBUG (temporary). Traces which intent the current searchCenter
-  // came from so on-device logs directly show whether the my-location
-  // button really landed on 'location' or a stale Kakao idle flipped
-  // it to 'viewport'. Fires on both source and searchCenter changes
-  // so a source flip without a coord change is still visible.
-  useEffect(() => {
-    if (!searchCenter) {
-      // eslint-disable-next-line no-console
-      console.log(`[track] source=${searchSource} searchCenter=null`);
-      return;
-    }
-    // eslint-disable-next-line no-console
-    console.log(
-      `[track] source=${searchSource} searchCenter=(${searchCenter.latitude.toFixed(6)},${searchCenter.longitude.toFixed(6)})`,
-    );
-  }, [searchCenter, searchSource]);
 
   // Client-side group narrowing only kicks in for drink / space_tag when
   // no sub-code is picked — everything else already fell through the
@@ -461,40 +411,10 @@ export default function MapScreen() {
     // no timing threshold, so a hand pan on the current mount (whose
     // mountId matches) always passes through.
     if (region.mountId !== recenterSeqRef.current) {
-      // eslint-disable-next-line no-console
-      console.log(
-        `[track] dropped stale idle mountId=${region.mountId} (current=${recenterSeqRef.current})`,
-      );
       return;
     }
     const nextCenter: Coordinates = { latitude: region.lat, longitude: region.lng };
     const nextRadius = computeRadiusFromBounds(region.bounds);
-    // DEBUG [track]: classify the "current-location jump" bug. Reads
-    // gps + recenter timestamp via refs (no closure over state so the
-    // useCallback([]) contract holds). Distance in meters vs GPS, and
-    // elapsed ms since the last recenterSeq bump, are the two axes we
-    // use to distinguish delayed-old-message vs zoom-shift vs other.
-    {
-      const loc = locationRef.current;
-      const bumpAt = recenterBumpAtRef.current;
-      const distM =
-        loc != null
-          ? haversineKm(nextCenter, loc) * 1000
-          : null;
-      const sinceMs = bumpAt != null ? Date.now() - bumpAt : null;
-      const locStr =
-        loc != null
-          ? `${loc.latitude.toFixed(6)},${loc.longitude.toFixed(6)}`
-          : "null";
-      const distStr = distM != null ? `${Math.round(distM)}m` : "n/a";
-      const sinceStr = sinceMs != null ? `${sinceMs}ms` : "n/a";
-      // eslint-disable-next-line no-console
-      console.log(
-        `[track] idle received: center=(${region.lat.toFixed(6)},${region.lng.toFixed(6)}) ` +
-          `gps=(${locStr}) dist_from_gps=${distStr} since_recenter=${sinceStr} ` +
-          `radiusKm=${nextRadius.toFixed(3)}`,
-      );
-    }
     setViewport((prev) => {
       if (
         prev &&
@@ -517,17 +437,7 @@ export default function MapScreen() {
   // so subsequent fetches follow whatever the user pans/zooms to.
   const handleUserInteractionStart = useCallback(
     (event: { interactionType: "drag" | "zoom"; mountId: number }) => {
-      if (event.mountId !== recenterSeqRef.current) {
-        // eslint-disable-next-line no-console
-        console.log(
-          `[track] userInteractionStart(${event.interactionType}) mountId=${event.mountId} (current=${recenterSeqRef.current}) → dropped(옛 mount)`,
-        );
-        return;
-      }
-      // eslint-disable-next-line no-console
-      console.log(
-        `[track] userInteractionStart(${event.interactionType}) mountId=${event.mountId} (current=${recenterSeqRef.current}) → source=viewport`,
-      );
+      if (event.mountId !== recenterSeqRef.current) return;
       setSearchSource("viewport");
     },
     [],
@@ -604,33 +514,6 @@ export default function MapScreen() {
     // Intentionally omitted from deps — this effect must ONLY fire
     // on recenterSeq change (my-location button), never on a
     // location or viewport update by itself.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recenterSeq]);
-
-  // DEBUG: temporary MapView remount tracer. Fires after the render
-  // commit that bumped recenterSeq, so `location` here is the value
-  // MapView actually used for `initialLatitude/Longitude` — the
-  // authoritative answer to "what coord did the camera open at?".
-  // Remove together with the other [loc] logs after the alternating-
-  // press bug is diagnosed.
-  useEffect(() => {
-    if (!location) return;
-    // eslint-disable-next-line no-console
-    console.log(
-      `[loc] MapView remount at (${location.latitude.toFixed(6)},${location.longitude.toFixed(6)}) recenterSeq=${recenterSeq}`,
-    );
-    // DEBUG [track] — remount center source. `location` here is the
-    // exact coord MapView opened at (its initialLatitude/Longitude);
-    // `viewport?.center` is the last known map camera before remount
-    // (typically the last hand-pan or last idle). If the two diverge
-    // by ~886m on a "tü" incident, we can now see it side-by-side
-    // and know MapView actually opened at `location` (the GPS
-    // source), not at a viewport-derived fallback.
-    const vpCenter = viewport?.center;
-    // eslint-disable-next-line no-console
-    console.log(
-      `[track] remount center source=location(${location.latitude.toFixed(6)},${location.longitude.toFixed(6)}) vs viewport(${vpCenter ? `${vpCenter.latitude.toFixed(6)},${vpCenter.longitude.toFixed(6)}` : "null"})`,
-    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recenterSeq]);
 
