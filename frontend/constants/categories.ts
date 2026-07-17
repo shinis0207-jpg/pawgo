@@ -51,3 +51,13 @@ export const CATEGORY_CHIPS: readonly CategoryChip[] = [
 export const CATEGORY_CODES: readonly string[] = CATEGORY_CHIPS.map(
   (c) => c.code,
 );
+
+// Category codes that stay in the seed / DB but are hidden from every
+// user-facing surface (sub chips, card badges, detail badges). The
+// CATEGORY_CHIPS entry is intentionally NOT removed — the code still
+// exists as a valid tag on backend rows, and the i18n label is still
+// present. This is a display-only mask so we can toggle codes on/off
+// without touching the seed migration.
+export const HIDDEN_CATEGORY_CODES: readonly string[] = ["fine_dining"];
+export const isHiddenCategory = (code: string) =>
+  HIDDEN_CATEGORY_CODES.includes(code);

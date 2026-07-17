@@ -26,6 +26,7 @@ import { CorrectionRequestModal } from "@/components/CorrectionRequestModal";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { useAuthStore } from "@/store/authStore";
 import { MVP_SHOW_REVIEWS } from "@/constants/mvp";
+import { isHiddenCategory } from "@/constants/categories";
 
 export default function PlaceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -94,8 +95,10 @@ export default function PlaceDetailScreen() {
   // sort_order-ordered), fall back to the legacy scalar. Detail screen
   // has more horizontal room than a card, but we still cap the visible
   // count so a place with every possible tag doesn't take over the title.
+  // Hidden codes stripped FIRST — same rationale as PlaceCard: filtering
+  // after the slice would corrupt the +N overflow count.
   const DETAIL_MAX_TAGS = 3;
-  const tagCodes = place.categories ?? [];
+  const tagCodes = (place.categories ?? []).filter((c) => !isHiddenCategory(c));
   const badgeLabel =
     tagCodes.length > 0
       ? (() => {

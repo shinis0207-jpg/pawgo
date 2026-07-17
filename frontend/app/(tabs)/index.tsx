@@ -26,7 +26,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Place, PlaceCategory, PlaceFilter, Coordinates } from "@/types";
 import { Colors, Spacing, Radius, Typography } from "@/constants/theme";
 import { MVP_SHOW_EMERGENCY_VET } from "@/constants/mvp";
-import { CATEGORY_CHIPS, CategoryGroup } from "@/constants/categories";
+import { CATEGORY_CHIPS, CategoryGroup, isHiddenCategory } from "@/constants/categories";
 
 // Viewport-driven search tuning.
 // - VIEWPORT_MARGIN: multiplier on (diagonal/2) so places right at the
@@ -98,11 +98,14 @@ const GROUPS: readonly CategoryGroup[] = [
 ] as const;
 
 // Group → sub-codes lookup, computed once from CATEGORY_CHIPS.
+// isHiddenCategory drops display-masked codes (e.g. fine_dining) so
+// they never surface as sub chips even though they remain in the
+// CATEGORY_CHIPS array and in the backend seed.
 const GROUP_CODES: Record<CategoryGroup, readonly string[]> = {
-  food: CATEGORY_CHIPS.filter((c) => c.group === "food").map((c) => c.code),
-  coffee_dessert: CATEGORY_CHIPS.filter((c) => c.group === "coffee_dessert").map((c) => c.code),
-  drink: CATEGORY_CHIPS.filter((c) => c.group === "drink").map((c) => c.code),
-  space_tag: CATEGORY_CHIPS.filter((c) => c.group === "space_tag").map((c) => c.code),
+  food: CATEGORY_CHIPS.filter((c) => c.group === "food" && !isHiddenCategory(c.code)).map((c) => c.code),
+  coffee_dessert: CATEGORY_CHIPS.filter((c) => c.group === "coffee_dessert" && !isHiddenCategory(c.code)).map((c) => c.code),
+  drink: CATEGORY_CHIPS.filter((c) => c.group === "drink" && !isHiddenCategory(c.code)).map((c) => c.code),
+  space_tag: CATEGORY_CHIPS.filter((c) => c.group === "space_tag" && !isHiddenCategory(c.code)).map((c) => c.code),
 };
 
 // When the user picks a group but no sub-code, we still need to filter

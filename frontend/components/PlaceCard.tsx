@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Place } from "@/types";
 import { Colors, Spacing, Radius, Typography, categoryColors } from "@/constants/theme";
 import { CategoryPlaceholder } from "@/components/CategoryPlaceholder";
+import { isHiddenCategory } from "@/constants/categories";
 
 interface Props {
   place: Place;
@@ -23,7 +24,11 @@ export function PlaceCard({ place, onPress }: Props) {
   // Multi-tag badge label. Uses place.categories when the backend
   // populated it; falls back to the legacy scalar category label so
   // pre-migration rows still render something meaningful.
-  const tagCodes = place.categories ?? [];
+  // Hidden codes (isHiddenCategory) are stripped FIRST so the +N
+  // overflow count reflects only user-visible tags — filtering after
+  // the slice would let a hidden code eat a display slot AND inflate
+  // the overflow number.
+  const tagCodes = (place.categories ?? []).filter((c) => !isHiddenCategory(c));
   const badgeLabel =
     tagCodes.length > 0
       ? (() => {
