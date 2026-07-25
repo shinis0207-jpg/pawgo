@@ -114,6 +114,30 @@
   }
   .actions { margin-top: 14px; display: flex; gap: 8px; }
   .hidden { display: none !important; }
+  .page-size-bar {
+    display: flex; gap: 6px; align-items: center;
+    margin-top: 12px;
+  }
+  .page-size-bar .page-size-label {
+    font-size: 12px; color: var(--muted); margin-right: 4px;
+  }
+  .page-size-bar button {
+    padding: 4px 10px; border: 1px solid var(--border);
+    background: #fff; color: var(--text);
+    font-size: 12px; border-radius: 4px;
+  }
+  .page-size-bar button.active {
+    background: var(--primary); color: #fff; border-color: var(--primary);
+  }
+  .page-bar {
+    display: flex; justify-content: center; align-items: center;
+    gap: 12px; margin-top: 12px; font-size: 13px; color: var(--muted);
+  }
+  .page-bar button {
+    padding: 4px 10px; background: #fff; color: var(--text);
+    border: 1px solid var(--border); font-size: 12px; border-radius: 4px;
+  }
+  .page-bar button:disabled { opacity: .4; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -145,7 +169,7 @@
     <h2>장소 검색</h2>
     <p class="note">
       관리자 전용 조회(/admin/places). 폐업(숨김) 장소도 결과에 포함됩니다.
-      이름은 공백 무시 부분일치. 비워두면 최근 이름순으로 나열.
+      이름은 공백 무시 부분일치. 비워두면 이름순으로 나열.
     </p>
     <div class="row">
       <label for="searchQ">이름</label>
@@ -155,7 +179,15 @@
       <button id="searchBtn">검색</button>
       <button class="secondary" id="logoutBtn">로그아웃</button>
     </div>
+    <div class="page-size-bar" id="pageSizeBar">
+      <span class="page-size-label">페이지당</span>
+      <button type="button" data-size="20">20</button>
+      <button type="button" data-size="30">30</button>
+      <button type="button" data-size="40">40</button>
+      <button type="button" data-size="50">50</button>
+    </div>
     <ul class="results" id="results"></ul>
+    <div id="pageBar" class="page-bar"></div>
     <div id="searchMsg"></div>
   </section>
 
@@ -328,6 +360,10 @@ const ALL_EDITABLE = [
 let token = localStorage.getItem("pawgo_admin_token") || "";
 let currentPlace = null;   // { id, name, category }
 let loadedPolicy = null;   // baseline for diff on save
+let currentPage = 1;
+let pageSize = 30;
+let lastQuery = "";
+let lastTotal = 0;
 
 // --- DOM helpers ---
 const $ = (id) => document.getElementById(id);
@@ -400,12 +436,24 @@ async function bootstrapFromToken() {
 }
 
 // --- Search (admin-only endpoint, includes HIDDEN rows) ---
+// New search from the button / Enter key: adopt the input as the new
+// query and jump back to page 1. Page-size and prev/next controls call
+// fetchAndRender directly so they don't overwrite lastQuery.
 async function search() {
-  const q = $("searchQ").value.trim();
+  lastQuery = $("searchQ").value.trim();
+  currentPage = 1;
+  await fetchAndRender();
+}
+
+async function fetchAndRender() {
   setMsg($("searchMsg"), "검색 중…", "ok");
   $("results").innerHTML = "";
-  const params = new URLSearchParams({ page: "1", size: "50" });
-  if (q) params.set("q", q);
+  $("pageBar").innerHTML = "";
+  const params = new URLSearchParams({
+    page: String(currentPage),
+    size: String(pageSize),
+  });
+  if (lastQuery) params.set("q", lastQuery);
   const r = await api("/admin/places?" + params.toString());
   if (!r.ok) {
     setMsg($("searchMsg"),
@@ -414,6 +462,7 @@ async function search() {
     return;
   }
   const items = r.body?.items || [];
+  lastTotal = r.body?.total || 0;
   setMsg($("searchMsg"), items.length ? "" : "결과 없음", items.length ? "ok" : "err");
   const ul = $("results");
   ul.innerHTML = "";
@@ -429,6 +478,53 @@ async function search() {
     li.onclick = () => selectPlace(p);
     ul.appendChild(li);
   });
+  renderPageBar();
+}
+
+function renderPageBar() {
+  const bar = $("pageBar");
+  bar.innerHTML = "";
+  if (lastTotal === 0) return;
+  const totalPages = Math.max(1, Math.ceil(lastTotal / pageSize));
+  if (currentPage > totalPages) currentPage = totalPages;
+
+  const prev = document.createElement("button");
+  prev.type = "button";
+  prev.textContent = "◀ 이전";
+  prev.disabled = currentPage <= 1;
+  prev.onclick = () => { currentPage -= 1; fetchAndRender(); };
+
+  const info = document.createElement("span");
+  info.textContent =
+    currentPage + " / 전체 " + totalPages + "페이지 (총 " + lastTotal + "개)";
+
+  const next = document.createElement("button");
+  next.type = "button";
+  next.textContent = "다음 ▶";
+  next.disabled = currentPage >= totalPages;
+  next.onclick = () => { currentPage += 1; fetchAndRender(); };
+
+  bar.appendChild(prev);
+  bar.appendChild(info);
+  bar.appendChild(next);
+}
+
+function renderPageSizeBar() {
+  document.querySelectorAll("#pageSizeBar button[data-size]").forEach((btn) => {
+    if (Number(btn.dataset.size) === pageSize) btn.classList.add("active");
+    else btn.classList.remove("active");
+  });
+}
+
+function onPageSizeClick(e) {
+  const btn = e.target.closest("button[data-size]");
+  if (!btn) return;
+  const newSize = Number(btn.dataset.size);
+  if (!Number.isFinite(newSize) || newSize === pageSize) return;
+  pageSize = newSize;
+  currentPage = 1;   // avoid landing on an empty page when size shrinks
+  renderPageSizeBar();
+  fetchAndRender();
 }
 
 // --- Selection + load (both basic info + policy) ---
@@ -674,11 +770,13 @@ $("logoutBtn").addEventListener("click", logout);
 $("searchBtn").addEventListener("click", search);
 $("searchQ").addEventListener("keydown",
   (e) => { if (e.key === "Enter") search(); });
+$("pageSizeBar").addEventListener("click", onPageSizeClick);
 $("basicSaveBtn").addEventListener("click", saveBasic);
 $("visibilityToggleBtn").addEventListener("click", toggleVisibility);
 $("saveBtn").addEventListener("click", save);
 $("reloadBtn").addEventListener("click", reloadCurrentPlace);
 
+renderPageSizeBar();
 bootstrapFromToken();
 </script>
 </body>
