@@ -31,7 +31,13 @@
   }
   header h1 { margin: 0; font-size: 16px; font-weight: 600; }
   header .who { float: right; font-size: 13px; color: #b6b6bd; }
-  main { max-width: 900px; margin: 24px auto; padding: 0 16px; }
+  main { max-width: 1280px; margin: 24px auto; padding: 0 16px; }
+  .workspace {
+    display: grid;
+    grid-template-columns: minmax(360px, 420px) 1fr;
+    gap: 20px;
+    align-items: start;
+  }
   .card {
     background: var(--card);
     border: 1px solid var(--border);
@@ -82,7 +88,10 @@
   .msg { padding: 8px 10px; border-radius: 6px; margin-top: 12px; font-size: 13px; }
   .msg.err { background: #fdecec; color: var(--danger); border: 1px solid #f5c8c5; }
   .msg.ok  { background: #eaf6ee; color: var(--ok);     border: 1px solid #c6e3d1; }
-  ul.results { list-style: none; padding: 0; margin: 12px 0 0; }
+  ul.results {
+    list-style: none; padding: 0; margin: 12px 0 0;
+    max-height: 520px; overflow-y: auto;
+  }
   ul.results li {
     padding: 8px 10px;
     border: 1px solid var(--border);
@@ -138,6 +147,9 @@
     border: 1px solid var(--border); font-size: 12px; border-radius: 4px;
   }
   .page-bar button:disabled { opacity: .4; cursor: not-allowed; }
+  @media (max-width: 1000px) {
+    .workspace { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
@@ -164,6 +176,7 @@
     <div id="loginMsg"></div>
   </section>
 
+  <div class="workspace">
   <!-- SEARCH -->
   <section id="searchCard" class="card hidden">
     <h2>장소 검색</h2>
@@ -337,6 +350,7 @@
     </div>
     <div id="editMsg"></div>
   </section>
+  </div>
 </main>
 
 <script>
