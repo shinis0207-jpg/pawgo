@@ -40,12 +40,12 @@
 
 **Android**
 ```
-패키지명: com.pawgo.app
+패키지명: com.kihoonshin.pawgo
 ```
 
 **iOS**
 ```
-번들 ID: com.pawgo.app
+번들 ID: com.kihoonshin.pawgo
 ```
 
 **Web** (카카오 지도 WebView 로컬 개발용)
