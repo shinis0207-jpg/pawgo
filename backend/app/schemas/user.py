@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
-from datetime import datetime
+from datetime import date, datetime
 from app.models.user import AuthProvider, Language, UserRole
 
 
@@ -71,3 +71,53 @@ class ResendCodeRequest(BaseModel):
 class ResendCodeResponse(BaseModel):
     message: str
     cooldown_sec: int
+
+
+# ── Admin read-only member inspection ─────────────────────────────────
+# Response shapes for /admin/users. Sensitive columns
+# (hashed_password, verification_code, verification_code_expires_at,
+# verification_attempts, last_verification_sent_at, oauth_id) are
+# deliberately absent — a future refactor that adds fields to the User
+# model must consciously opt them in here rather than leak by default.
+
+class AdminPetItem(BaseModel):
+    id: int
+    name: str
+    type: str
+    breed: str | None
+    weight_kg: float | None
+    birth_date: date | None
+    notes: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class AdminUserListItem(BaseModel):
+    id: int
+    name: str
+    email: EmailStr
+    role: UserRole
+    auth_provider: AuthProvider
+    created_at: datetime
+    pet_count: int
+
+
+class AdminUserListResponse(BaseModel):
+    items: list[AdminUserListItem]
+    total: int
+    page: int
+    size: int
+
+
+class AdminUserDetail(BaseModel):
+    id: int
+    name: str
+    email: EmailStr
+    role: UserRole
+    auth_provider: AuthProvider
+    language: Language
+    is_active: bool
+    is_verified: bool
+    created_at: datetime
+    pet_count: int
+    pets: list[AdminPetItem]
