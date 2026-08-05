@@ -28,9 +28,20 @@
     background: var(--text);
     color: #fff;
     padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
   }
   header h1 { margin: 0; font-size: 16px; font-weight: 600; }
-  header .who { float: right; font-size: 13px; color: #b6b6bd; }
+  header .who { font-size: 13px; color: #b6b6bd; margin-left: auto; }
+  header #logoutBtn {
+    padding: 6px 12px; font-size: 13px;
+    background: transparent; color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+  }
+  header #logoutBtn:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
   main { max-width: 1120px; margin: 24px auto; padding: 0 16px; }
   .workspace {
     display: grid;
@@ -178,6 +189,7 @@
 <header>
   <h1>PawGo Admin — pet policy editor</h1>
   <span class="who" id="who"></span>
+  <button class="secondary hidden" id="logoutBtn">로그아웃</button>
 </header>
 
 <main>
@@ -217,7 +229,6 @@
     </div>
     <div class="actions">
       <button id="searchBtn">검색</button>
-      <button class="secondary" id="logoutBtn">로그아웃</button>
     </div>
     <div class="page-size-bar" id="pageSizeBar">
       <span class="page-size-label">페이지당</span>
@@ -485,6 +496,7 @@ function enterAdmin(user) {
   $("who").textContent = (user?.email || "") + " · admin";
   hide($("loginCard"));
   show($("tabBar"));
+  show($("logoutBtn"));
   show($("searchCard"));
 }
 
