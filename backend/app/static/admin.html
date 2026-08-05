@@ -156,6 +156,19 @@
   .tabs button.active {
     background: var(--primary); color: #fff; border-color: var(--primary);
   }
+  .badge-admin {
+    background: var(--primary); color: #fff; padding: 2px 6px;
+    border-radius: 4px; font-size: 11px; margin-left: 8px; font-weight: 600;
+  }
+  ul.pet-list { list-style: none; padding: 0; margin: 8px 0 0; }
+  ul.pet-list li {
+    padding: 8px 10px; border: 1px solid var(--border);
+    border-radius: 6px; margin-bottom: 6px; background: #fff;
+  }
+  ul.pet-list li .pet-notes {
+    font-size: 12px; color: var(--muted); margin-top: 4px;
+  }
+  .user-detail { margin-top: 8px; }
   @media (max-width: 1000px) {
     .workspace { grid-template-columns: 1fr; }
   }
@@ -367,10 +380,30 @@
   </div>
 
   <div id="usersPane" class="hidden">
-    <section class="card">
-      <h2>회원</h2>
-      <p class="note">준비 중입니다.</p>
-    </section>
+    <div class="workspace">
+      <!-- USERS LIST -->
+      <section id="usersListCard" class="card">
+        <h2>회원 목록</h2>
+        <p class="note">
+          가입일 최신순으로 나열됩니다. 관리자(admin) 계정은 이름 옆에 배지가 붙습니다.
+        </p>
+        <div class="page-size-bar" id="usersPageSizeBar">
+          <span class="page-size-label">페이지당</span>
+          <button type="button" data-size="20">20</button>
+          <button type="button" data-size="30">30</button>
+          <button type="button" data-size="40">40</button>
+          <button type="button" data-size="50">50</button>
+        </div>
+        <ul class="results" id="usersResults"></ul>
+        <div id="usersPageBar" class="page-bar"></div>
+        <div id="usersMsg"></div>
+      </section>
+
+      <!-- USER DETAIL (read-only) -->
+      <section id="userDetailCard" class="card hidden">
+        <!-- populated by renderUserDetail() -->
+      </section>
+    </div>
   </div>
 </main>
 
@@ -800,6 +833,171 @@ async function toggleVisibility() {
   );
 }
 
+// --- Users (read-only member inspection) ---
+// Independent state and helpers so places/users pagination don't collide.
+// One-time auto-load on first "회원" tab entry (see switchTab); subsequent
+// re-fetches happen only on page navigation or page-size change. Rationale:
+// users are listed created_at DESC and newly-registered accounts always
+// bubble to page 1, so an explicit "refresh" would only save the admin
+// one page-size click. Preserving the list scroll/selection between tab
+// switches is more valuable than staleness for admin inspection.
+let usersPage = 1;
+let usersPageSize = 30;
+let usersTotal = 0;
+let usersLoaded = false;
+
+async function usersFetchAndRender() {
+  setMsg($("usersMsg"), "불러오는 중…", "ok");
+  $("usersResults").innerHTML = "";
+  $("usersPageBar").innerHTML = "";
+  const params = new URLSearchParams({
+    page: String(usersPage),
+    size: String(usersPageSize),
+  });
+  const r = await api("/admin/users?" + params.toString());
+  if (!r.ok) {
+    setMsg($("usersMsg"),
+      "회원 조회 실패 (" + r.status + "): " + JSON.stringify(r.body?.detail ?? r.body ?? ""),
+      "err");
+    return;
+  }
+  const items = r.body?.items || [];
+  usersTotal = r.body?.total || 0;
+  setMsg($("usersMsg"), items.length ? "" : "회원 없음", items.length ? "ok" : "err");
+  const ul = $("usersResults");
+  ul.innerHTML = "";
+  items.forEach((u) => {
+    const li = document.createElement("li");
+    const badge = u.role === "admin"
+      ? ' <span class="badge-admin">관리자</span>' : '';
+    li.innerHTML =
+      '<span class="id">#' + u.id + '</span>' +
+      '<strong>' + escapeHtml(u.name) + '</strong>' +
+      badge +
+      '<span class="cat">' + escapeHtml(u.email) + '</span>' +
+      '<span class="cat">반려동물 ' + u.pet_count + '마리</span>';
+    li.onclick = () => loadUserDetail(u.id);
+    ul.appendChild(li);
+  });
+  renderUsersPageBar();
+}
+
+function renderUsersPageBar() {
+  const bar = $("usersPageBar");
+  bar.innerHTML = "";
+  if (usersTotal === 0) return;
+  const totalPages = Math.max(1, Math.ceil(usersTotal / usersPageSize));
+  if (usersPage > totalPages) usersPage = totalPages;
+
+  const prev = document.createElement("button");
+  prev.type = "button";
+  prev.textContent = "◀ 이전";
+  prev.disabled = usersPage <= 1;
+  prev.onclick = () => { usersPage -= 1; usersFetchAndRender(); };
+
+  const info = document.createElement("span");
+  info.textContent =
+    usersPage + " / 전체 " + totalPages + "페이지 (총 " + usersTotal + "명)";
+
+  const next = document.createElement("button");
+  next.type = "button";
+  next.textContent = "다음 ▶";
+  next.disabled = usersPage >= totalPages;
+  next.onclick = () => { usersPage += 1; usersFetchAndRender(); };
+
+  bar.appendChild(prev);
+  bar.appendChild(info);
+  bar.appendChild(next);
+}
+
+function renderUsersPageSizeBar() {
+  document.querySelectorAll("#usersPageSizeBar button[data-size]").forEach((btn) => {
+    if (Number(btn.dataset.size) === usersPageSize) btn.classList.add("active");
+    else btn.classList.remove("active");
+  });
+}
+
+function onUsersPageSizeClick(e) {
+  const btn = e.target.closest("button[data-size]");
+  if (!btn) return;
+  const newSize = Number(btn.dataset.size);
+  if (!Number.isFinite(newSize) || newSize === usersPageSize) return;
+  usersPageSize = newSize;
+  usersPage = 1;   // avoid landing on an empty page when size shrinks
+  renderUsersPageSizeBar();
+  usersFetchAndRender();
+}
+
+function fmtDate(iso) {
+  if (!iso) return "-";
+  return String(iso).slice(0, 10);   // 2026-08-05 form from ISO timestamps
+}
+
+async function loadUserDetail(userId) {
+  const card = $("userDetailCard");
+  show(card);
+  card.innerHTML = '<div class="msg ok">불러오는 중…</div>';
+  const r = await api("/admin/users/" + userId);
+  if (!r.ok) {
+    card.innerHTML =
+      '<div class="msg err">' +
+      escapeHtml("회원 조회 실패 (" + r.status + "): " +
+        JSON.stringify(r.body?.detail ?? r.body ?? "")) +
+      '</div>';
+    return;
+  }
+  renderUserDetail(r.body);
+}
+
+function renderUserDetail(u) {
+  const roleBadge = u.role === "admin"
+    ? ' <span class="badge-admin">관리자</span>' : '';
+  const activeText = u.is_active
+    ? '<span class="status-visible">활성</span>'
+    : '<span class="status-hidden">비활성</span>';
+  const verifiedText = u.is_verified
+    ? '<span class="status-visible">인증됨</span>'
+    : '<span class="status-hidden">미인증</span>';
+
+  let petsHtml;
+  if (!u.pets || u.pets.length === 0) {
+    petsHtml = '<p class="note">등록된 반려동물이 없습니다.</p>';
+  } else {
+    petsHtml = '<ul class="pet-list">' + u.pets.map((p) => {
+      // Skip null-ish fields entirely rather than showing "-": keeps the
+      // one-liner tight when a pet has minimal data.
+      const parts = [
+        '<strong>' + escapeHtml(p.name) + '</strong>',
+        escapeHtml(p.type),
+        p.breed ? escapeHtml(p.breed) : null,
+        (p.weight_kg !== null && p.weight_kg !== undefined)
+          ? escapeHtml(String(p.weight_kg)) + 'kg' : null,
+        p.birth_date ? fmtDate(p.birth_date) : null,
+      ].filter(Boolean);
+      const notes = p.notes
+        ? '<div class="pet-notes">' + escapeHtml(p.notes) + '</div>' : '';
+      return '<li>' + parts.join(' · ') + notes + '</li>';
+    }).join('') + '</ul>';
+  }
+
+  $("userDetailCard").innerHTML =
+    '<h2>회원 상세 — ' + escapeHtml(u.name) +
+      ' <span class="note">(#' + u.id + ')</span></h2>' +
+    '<div class="user-detail">' +
+      '<div class="row"><label>이름</label><span>' + escapeHtml(u.name) + '</span></div>' +
+      '<div class="row"><label>이메일</label><span>' + escapeHtml(u.email) + '</span></div>' +
+      '<div class="row"><label>가입일</label><span>' + fmtDate(u.created_at) + '</span></div>' +
+      '<div class="row"><label>role</label><span>' + escapeHtml(u.role) + roleBadge + '</span></div>' +
+      '<div class="row"><label>가입 경로</label><span>' + escapeHtml(u.auth_provider) + '</span></div>' +
+      '<div class="row"><label>언어</label><span>' + escapeHtml(u.language) + '</span></div>' +
+      '<div class="row"><label>활성 여부</label><span>' + activeText + '</span></div>' +
+      '<div class="row"><label>이메일 인증</label><span>' + verifiedText + '</span></div>' +
+    '</div>' +
+    '<hr />' +
+    '<h3>반려동물 (' + u.pet_count + '마리)</h3>' +
+    petsHtml;
+}
+
 // --- Tab switching (chrome only — pane-level, no touch to child cards) ---
 // Toggling placesPane/usersPane keeps each pane's inner hidden state
 // intact (e.g. editCard stays hidden until loadBasic shows it). We only
@@ -811,6 +1009,7 @@ function switchTab(name) {
   } else {
     hide($("placesPane"));
     show($("usersPane"));
+    if (!usersLoaded) { usersLoaded = true; usersFetchAndRender(); }
   }
   document.querySelectorAll("#tabBar button[data-tab]").forEach((btn) => {
     if (btn.dataset.tab === name) btn.classList.add("active");
@@ -829,12 +1028,14 @@ $("searchBtn").addEventListener("click", search);
 $("searchQ").addEventListener("keydown",
   (e) => { if (e.key === "Enter") search(); });
 $("pageSizeBar").addEventListener("click", onPageSizeClick);
+$("usersPageSizeBar").addEventListener("click", onUsersPageSizeClick);
 $("basicSaveBtn").addEventListener("click", saveBasic);
 $("visibilityToggleBtn").addEventListener("click", toggleVisibility);
 $("saveBtn").addEventListener("click", save);
 $("reloadBtn").addEventListener("click", reloadCurrentPlace);
 
 renderPageSizeBar();
+renderUsersPageSizeBar();
 bootstrapFromToken();
 </script>
 </body>
