@@ -147,6 +147,15 @@
     border: 1px solid var(--border); font-size: 12px; border-radius: 4px;
   }
   .page-bar button:disabled { opacity: .4; cursor: not-allowed; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+  .tabs button {
+    padding: 8px 18px; border: 1px solid var(--border);
+    background: #fff; color: var(--text);
+    font-size: 14px; border-radius: 6px;
+  }
+  .tabs button.active {
+    background: var(--primary); color: #fff; border-color: var(--primary);
+  }
   @media (max-width: 1000px) {
     .workspace { grid-template-columns: 1fr; }
   }
@@ -176,7 +185,12 @@
     <div id="loginMsg"></div>
   </section>
 
-  <div class="workspace">
+  <div class="tabs hidden" id="tabBar">
+    <button type="button" data-tab="places" class="active">장소</button>
+    <button type="button" data-tab="users">회원</button>
+  </div>
+
+  <div class="workspace" id="placesPane">
   <!-- SEARCH -->
   <section id="searchCard" class="card hidden">
     <h2>장소 검색</h2>
@@ -351,6 +365,13 @@
     <div id="editMsg"></div>
   </section>
   </div>
+
+  <div id="usersPane" class="hidden">
+    <section class="card">
+      <h2>회원</h2>
+      <p class="note">준비 중입니다.</p>
+    </section>
+  </div>
 </main>
 
 <script>
@@ -430,6 +451,7 @@ async function login() {
 function enterAdmin(user) {
   $("who").textContent = (user?.email || "") + " · admin";
   hide($("loginCard"));
+  show($("tabBar"));
   show($("searchCard"));
 }
 
@@ -778,9 +800,31 @@ async function toggleVisibility() {
   );
 }
 
+// --- Tab switching (chrome only — pane-level, no touch to child cards) ---
+// Toggling placesPane/usersPane keeps each pane's inner hidden state
+// intact (e.g. editCard stays hidden until loadBasic shows it). We only
+// flip the pane wrapper, never its children.
+function switchTab(name) {
+  if (name === "places") {
+    show($("placesPane"));
+    hide($("usersPane"));
+  } else {
+    hide($("placesPane"));
+    show($("usersPane"));
+  }
+  document.querySelectorAll("#tabBar button[data-tab]").forEach((btn) => {
+    if (btn.dataset.tab === name) btn.classList.add("active");
+    else btn.classList.remove("active");
+  });
+}
+
 // --- Wire up ---
 $("loginBtn").addEventListener("click", login);
 $("logoutBtn").addEventListener("click", logout);
+$("tabBar").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-tab]");
+  if (btn) switchTab(btn.dataset.tab);
+});
 $("searchBtn").addEventListener("click", search);
 $("searchQ").addEventListener("keydown",
   (e) => { if (e.key === "Enter") search(); });
