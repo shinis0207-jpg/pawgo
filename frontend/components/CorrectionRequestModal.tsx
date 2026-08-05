@@ -14,6 +14,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 
 import { correctionRequestsApi } from "@/services/api";
@@ -49,6 +50,7 @@ export function CorrectionRequestModal({
 }: Props) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const [category, setCategory] = useState<CorrectionRequestCategory | null>(null);
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -81,6 +83,7 @@ export function CorrectionRequestModal({
         request_category: category,
         description: trimmed,
       });
+      queryClient.invalidateQueries({ queryKey: ["correction-requests", "mine"] });
       setSubmitted(true);
       onSubmitted?.();
     } catch (err) {
