@@ -6,6 +6,7 @@ import { Place } from "@/types";
 import { Colors, Spacing, Radius, Typography, categoryColors } from "@/constants/theme";
 import { CategoryPlaceholder } from "@/components/CategoryPlaceholder";
 import { isHiddenCategory } from "@/constants/categories";
+import { MVP_SHOW_REVIEWS } from "@/constants/mvp";
 
 interface Props {
   place: Place;
@@ -64,17 +65,25 @@ export function PlaceCard({ place, onPress }: Props) {
         <Text style={styles.name} numberOfLines={1}>{place.name}</Text>
         <Text style={styles.address} numberOfLines={1}>{place.address}</Text>
 
-        <View style={styles.meta}>
-          <View style={styles.rating}>
-            <Ionicons name="star" size={12} color={Colors.warning} />
-            <Text style={styles.ratingText}>{place.rating.toFixed(1)}</Text>
-            <Text style={styles.reviewCount}>({place.review_count})</Text>
-          </View>
+        {/* Rating hidden behind MVP_SHOW_REVIEWS (same gate as place/[id].tsx)
+            because place.rating / review_count are always 0 until Phase 3
+            reviews ship. Outer meta row is also gated so an empty row
+            doesn't leave a stray marginBottom gap when both are absent. */}
+        {(MVP_SHOW_REVIEWS || place.distance_km !== null) && (
+          <View style={styles.meta}>
+            {MVP_SHOW_REVIEWS && (
+              <View style={styles.rating}>
+                <Ionicons name="star" size={12} color={Colors.warning} />
+                <Text style={styles.ratingText}>{place.rating.toFixed(1)}</Text>
+                <Text style={styles.reviewCount}>({place.review_count})</Text>
+              </View>
+            )}
 
-          {place.distance_km !== null && (
-            <Text style={styles.distance}>{place.distance_km}km</Text>
-          )}
-        </View>
+            {place.distance_km !== null && (
+              <Text style={styles.distance}>{place.distance_km}km</Text>
+            )}
+          </View>
+        )}
 
         {/* Pet info tags — same policy as place detail: data-driven only.
             "체중 제한 없음" was a misleading default for cards where weight
