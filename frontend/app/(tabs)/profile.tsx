@@ -193,12 +193,23 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function MenuItem({ icon, label, onPress }: { icon: string; label: string; onPress?: () => void }) {
-  return (
-    <TouchableOpacity style={styles.menuItem} onPress={onPress}>
+  // onPress 없는 항목(예: 버전 표시)은 chevron·터치 없이 View로 렌더 —
+  // 눌러도 아무 일도 없는데 화살표가 붙어 눌러도 되는 것처럼 보이는 오해를 막는다.
+  const content = (
+    <>
       <Ionicons name={icon as any} size={20} color={Colors.textSecondary} />
       <Text style={styles.menuLabel}>{label}</Text>
-      <Ionicons name="chevron-forward" size={16} color={Colors.textLight} style={{ marginLeft: "auto" }} />
+      {onPress && (
+        <Ionicons name="chevron-forward" size={16} color={Colors.textLight} style={{ marginLeft: "auto" }} />
+      )}
+    </>
+  );
+  return onPress ? (
+    <TouchableOpacity style={styles.menuItem} onPress={onPress}>
+      {content}
     </TouchableOpacity>
+  ) : (
+    <View style={styles.menuItem}>{content}</View>
   );
 }
 
