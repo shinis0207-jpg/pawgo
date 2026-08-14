@@ -2,11 +2,11 @@ from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 
 from app.config import get_settings
 from app.database import get_db
-from app.models.user import User, AuthProvider
+from app.models.user import User, AuthProvider, UserRole
 from app.schemas.user import (
     UserCreate,
     UserResponse,
@@ -311,3 +311,23 @@ async def oauth_login(data: OAuthLogin, db: AsyncSession = Depends(get_db)):
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_me(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    # Admins cannot self-delete — removes a hard-to-reverse footgun where
+    # the ADMIN_EMAILS allowlist would silently re-grant admin on the
+    # next signup. Same enum-comparison style as require_admin.
+    if current_user.role == UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin cannot delete own account")
+
+    # Core DELETE (not Session.delete) so PostgreSQL's FK rules run:
+    # pets/favorites/owner_claims CASCADE, correction_requests/reviews/
+    # places.owner_user_id/place_photos.uploaded_by SET NULL. ORM path
+    # would try to NULL pets.user_id (NOT NULL) via the User.pets
+    # selectin relationship and fail.
+    await db.execute(delete(User).where(User.id == current_user.id))
+    await db.commit()
