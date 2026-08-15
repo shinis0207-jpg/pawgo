@@ -215,6 +215,24 @@
     "verified_badge": "Verified",
     "logout_confirm": "Log out?"
   },
+  "delete_account": {
+    "title": "Delete Account",
+    "intro": "Deleting your account will permanently remove the following. This cannot be undone.",
+    "item_account": "Account info (email, name)",
+    "item_pets": "Registered pet profiles",
+    "item_pets_with_names": "Registered pet profiles ({{names}})",
+    "item_favorites": "Saved places",
+    "footer_correction": "Correction requests you submitted will remain, with the author info removed.",
+    "cancel": "Cancel",
+    "submit": "Delete Account",
+    "confirm_title": "Really delete this account?",
+    "confirm_body": "The deleted account and its data cannot be recovered.",
+    "confirm_cancel": "Cancel",
+    "confirm_submit": "Delete",
+    "done_body": "Your account has been deleted.",
+    "done_ok": "OK",
+    "error_body": "Failed to delete the account. Please try again later."
+  },
   "vet": {
     "emergency": "Emergency",
     "24h": "24 Hours",

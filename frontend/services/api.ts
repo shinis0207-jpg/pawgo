@@ -81,6 +81,9 @@ export const authApi = {
     apiClient.post<AuthTokenResponse>("/auth/oauth", { provider, access_token }),
 
   getMe: () => apiClient.get<User>("/auth/me"),
+
+  // Backend returns 204 with no body — do not parse response.data.
+  deleteMe: () => apiClient.delete<void>("/auth/me"),
 };
 
 // Pets

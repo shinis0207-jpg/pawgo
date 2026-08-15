@@ -176,6 +176,12 @@ export default function ProfileScreen() {
             <Ionicons name="log-out-outline" size={20} color={Colors.error} />
             <Text style={styles.logoutText}>{t("profile.logout")}</Text>
           </TouchableOpacity>
+          <MenuItem
+            icon="trash-outline"
+            label={t("profile.delete_account")}
+            onPress={() => router.push("/profile/delete-account")}
+            danger
+          />
         </Section>
 
       </ScrollView>
@@ -192,15 +198,30 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function MenuItem({ icon, label, onPress }: { icon: string; label: string; onPress?: () => void }) {
+function MenuItem({
+  icon,
+  label,
+  onPress,
+  danger,
+}: {
+  icon: string;
+  label: string;
+  onPress?: () => void;
+  // 위험 동작(예: 계정 삭제)임을 시각적으로 드러내기 위한 옵션.
+  // 아이콘·라벨·chevron 모두 Colors.error로 렌더한다.
+  danger?: boolean;
+}) {
   // onPress 없는 항목(예: 버전 표시)은 chevron·터치 없이 View로 렌더 —
   // 눌러도 아무 일도 없는데 화살표가 붙어 눌러도 되는 것처럼 보이는 오해를 막는다.
+  const iconColor = danger ? Colors.error : Colors.textSecondary;
+  const labelStyle = danger ? [styles.menuLabel, { color: Colors.error }] : styles.menuLabel;
+  const chevronColor = danger ? Colors.error : Colors.textLight;
   const content = (
     <>
-      <Ionicons name={icon as any} size={20} color={Colors.textSecondary} />
-      <Text style={styles.menuLabel}>{label}</Text>
+      <Ionicons name={icon as any} size={20} color={iconColor} />
+      <Text style={labelStyle}>{label}</Text>
       {onPress && (
-        <Ionicons name="chevron-forward" size={16} color={Colors.textLight} style={{ marginLeft: "auto" }} />
+        <Ionicons name="chevron-forward" size={16} color={chevronColor} style={{ marginLeft: "auto" }} />
       )}
     </>
   );
