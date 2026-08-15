@@ -191,6 +191,29 @@ async def get_emergency_vets(
     return places
 
 
+def place_to_detail_response(place: Place, lang: str = "ko") -> dict:
+    """Detail payload: PlaceResponse fields + menus[].
+
+    Caller is responsible for having eager-loaded Place.menus (the
+    relationship is default-lazy on purpose so /places/nearby doesn't
+    pull menus for every card). Iterating an unloaded list here would
+    async-fault under selectin's default lazy loader.
+    """
+    payload = place_to_response(place, lang)
+    payload["menus"] = [
+        {
+            "id": m.id,
+            "name": m.name,
+            "price": m.price,
+            "is_signature": m.is_signature,
+            "image_url": m.image_url,
+            "sort_order": m.sort_order,
+        }
+        for m in (place.menus or [])
+    ]
+    return payload
+
+
 def place_to_response(place: Place, lang: str = "ko") -> dict:
     translation = next(
         (t for t in (place.translations or []) if t.language == lang), None

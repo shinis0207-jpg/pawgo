@@ -85,6 +85,19 @@ class Place(Base):
     place_rating: Mapped["PlaceRating | None"] = relationship(
         "PlaceRating", back_populates="place", uselist=False
     )
+    # Menus: intentionally NOT lazy="selectin". Menus are only shown on the
+    # detail screen; loading them on every /places/nearby row would multiply
+    # a 20-card map fetch by however many menu rows each place has. Detail
+    # handler loads this explicitly via selectinload(Place.menus).
+    # order_by fixes the row order at the ORM level so callers don't need
+    # to sort in Python. String form avoids a top-of-file import cycle
+    # (place_menu.py imports Base only; the string is resolved lazily
+    # against the SQLAlchemy registry).
+    menus: Mapped[list["PlaceMenu"]] = relationship(
+        "PlaceMenu",
+        back_populates="place",
+        order_by="[PlaceMenu.sort_order, PlaceMenu.id]",
+    )
     # Multi-tag category relationship. lazy="selectin" mirrors pet_policy
     # / translations / photos so the default map query never fires an
     # extra round-trip per row. No back_populates — Category deliberately

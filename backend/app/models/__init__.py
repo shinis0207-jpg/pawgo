@@ -2,6 +2,7 @@ from app.models.user import User, UserRole
 from app.models.pet import Pet
 from app.models.category import Category, place_categories
 from app.models.place import Place, PlaceTranslation, PlacePhoto, PlaceCategory, VisibilityStatus
+from app.models.place_menu import PlaceMenu
 from app.models.review import Review
 from app.models.vet import VetHospital
 from app.models.pet_policy import (
@@ -30,6 +31,7 @@ __all__ = [
     "Place",
     "PlaceTranslation",
     "PlacePhoto",
+    "PlaceMenu",
     "PlaceCategory",
     "VisibilityStatus",
     "Review",

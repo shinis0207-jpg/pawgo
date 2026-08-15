@@ -6,11 +6,12 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.place import Place
 from app.models.user import User
-from app.schemas.place import PlaceCreate, PlaceUpdate, PlaceResponse, PlaceListResponse, PlaceFilter
+from app.schemas.place import PlaceCreate, PlaceUpdate, PlaceResponse, PlaceListResponse, PlaceFilter, PlaceDetailResponse
 from app.services.auth import get_current_user
 from app.services.places import (
     get_places_nearby,
     place_to_response,
+    place_to_detail_response,
     get_emergency_vets,
     create_place_with_default_policy,
 )
@@ -84,7 +85,7 @@ async def list_emergency_vets(
     return [place_to_response(p, lang) for p in places]
 
 
-@router.get("/{place_id}", response_model=PlaceResponse)
+@router.get("/{place_id}", response_model=PlaceDetailResponse)
 async def get_place(
     place_id: int,
     background_tasks: BackgroundTasks,
@@ -99,7 +100,11 @@ async def get_place(
     result = await db.execute(
         select(Place)
         .where(Place.id == place_id, Place.is_active == True)
-        .options(selectinload(Place.pet_policy), selectinload(Place.photos))
+        .options(
+            selectinload(Place.pet_policy),
+            selectinload(Place.photos),
+            selectinload(Place.menus),
+        )
     )
     place = result.scalar_one_or_none()
     if not place:
@@ -114,7 +119,7 @@ async def get_place(
         kakao_id = place.external_id.removeprefix("kakao_")
         background_tasks.add_task(cache_place_thumbnail, place_id, kakao_id)
 
-    response = place_to_response(place, lang)
+    response = place_to_detail_response(place, lang)
     await cache_set(cache_key, response)
     return response
 

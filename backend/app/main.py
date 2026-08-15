@@ -10,7 +10,7 @@ from app.database import engine, Base
 from app.routers import (
     auth, pets, places, reviews, ai,
     correction_requests, admin_correction_requests,
-    favorites, admin_places, admin_users,
+    favorites, admin_places, admin_users, admin_menus,
 )
 
 settings = get_settings()
@@ -51,6 +51,7 @@ app.include_router(correction_requests.router, prefix=PREFIX)
 app.include_router(admin_correction_requests.router, prefix=PREFIX)
 app.include_router(admin_places.router, prefix=PREFIX)
 app.include_router(admin_users.router, prefix=PREFIX)
+app.include_router(admin_menus.router, prefix=PREFIX)
 app.include_router(favorites.router, prefix=PREFIX)
 
 

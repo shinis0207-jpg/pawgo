@@ -13,6 +13,70 @@ class PlacePhotoResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PlaceMenuResponse(BaseModel):
+    id: int
+    name: str
+    price: int | None
+    is_signature: bool
+    image_url: str | None
+    sort_order: int
+
+    model_config = {"from_attributes": True}
+
+
+class PlaceMenuCreate(BaseModel):
+    """Admin body for POST /admin/places/{place_id}/menus.
+
+    Follows the extra="forbid" convention shared with other admin PATCH
+    schemas — any field outside this whitelist 422s before the handler
+    runs. Blank/whitespace-only name is rejected via a validator.
+    """
+    name: str = Field(..., max_length=100)
+    price: int | None = Field(default=None, ge=0)
+    is_signature: bool = False
+    image_url: str | None = Field(default=None, max_length=500)
+    sort_order: int = 0
+
+    model_config = {"extra": "forbid"}
+
+    @field_validator("name")
+    @classmethod
+    def _reject_blank_name(cls, v: str) -> str:
+        s = v.strip()
+        if not s:
+            raise ValueError("name must not be blank")
+        return s
+
+
+class PlaceMenuUpdate(BaseModel):
+    """Partial admin edit for PATCH /admin/menus/{menu_id}.
+
+    Every field is optional and only supplied keys are written (router
+    keys off model_dump(exclude_unset=True)). name accepts a value but
+    not null/blank — omit the key to leave it unchanged.
+    """
+    name: str | None = Field(default=None, max_length=100)
+    price: int | None = Field(default=None, ge=0)
+    is_signature: bool | None = None
+    image_url: str | None = Field(default=None, max_length=500)
+    sort_order: int | None = None
+
+    model_config = {"extra": "forbid"}
+
+    @field_validator("name")
+    @classmethod
+    def _reject_blank_or_null_name(cls, v: str | None) -> str | None:
+        # pydantic v2 skips validators for a field's default, so this only
+        # runs when the client explicitly sends `"name": null` or a blank
+        # string. Match the pattern used by PlaceAdminPatchRequest.name.
+        if v is None:
+            raise ValueError("name cannot be null; omit the field to skip")
+        s = v.strip()
+        if not s:
+            raise ValueError("name must not be blank")
+        return s
+
+
 class PetPolicyResponse(BaseModel):
     pet_allowed_status: PetAllowedStatus
     verification_status: VerificationStatus
@@ -188,6 +252,17 @@ class PlaceListResponse(BaseModel):
     total: int
     page: int
     size: int
+
+
+class PlaceDetailResponse(PlaceResponse):
+    """Detail-only shape used by GET /places/{id}.
+
+    Adds `menus` on top of PlaceResponse. Kept separate so /places/nearby,
+    /admin/places, /favorites, etc. keep returning the leaner
+    PlaceResponse — those endpoints intentionally do NOT load Place.menus
+    and would either lazy-fault or serialize an empty list otherwise.
+    """
+    menus: list[PlaceMenuResponse] = []
 
 
 class VetHospitalResponse(BaseModel):
