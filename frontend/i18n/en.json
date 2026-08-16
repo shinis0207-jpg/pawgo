@@ -156,7 +156,11 @@
     "kg_limit": "{{weight}}kg limit",
     "no_limit": "No weight limit",
     "pet_info_title": "Pet information",
-    "about_title": "About"
+    "about_title": "About",
+    "menu_title": "Menu",
+    "no_menu": "No menu information",
+    "menu_disclaimer": "Menu items and prices are subject to change",
+    "menu_price_won": "{{price}} KRW"
   },
   "pets": {
     "title": "My Pets",

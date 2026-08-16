@@ -132,6 +132,15 @@ export interface PlacePhoto {
   is_primary: boolean;
 }
 
+export interface PlaceMenu {
+  id: number;
+  name: string;
+  price: number | null;
+  is_signature: boolean;
+  image_url: string | null;
+  sort_order: number;
+}
+
 export interface Place {
   id: number;
   name: string;
@@ -159,6 +168,10 @@ export interface Place {
   review_count: number;
   is_verified: boolean;
   photos: PlacePhoto[];
+  // Present only on the detail response (GET /places/{id}); the /places/nearby
+  // list endpoint deliberately omits menus to keep per-card payloads small.
+  // Kept optional so list-fed callers stay typesafe.
+  menus?: PlaceMenu[];
   // Phase 2A: backend exposes a nested pet_policy block on the place
   // response. Optional here because legacy callers may not select it.
   pet_policy?: PetPolicy | null;

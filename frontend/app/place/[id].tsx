@@ -266,6 +266,41 @@ export default function PlaceDetailScreen() {
             </View>
           )}
 
+          {/* Menu — always rendered (no IIFE guard). Menu absence is a
+              first-class state that surfaces "메뉴 정보 없음" instead of
+              hiding the card. Signature items are only distinguished by
+              a bolder name — no badge/icon/color — to avoid visual
+              collision with the pet-policy verification badge. */}
+          <InfoCard title={t("place.menu_title")}>
+            {(place.menus ?? []).length === 0 ? (
+              <Text style={styles.menuEmpty}>{t("place.no_menu")}</Text>
+            ) : (
+              (place.menus ?? []).map((menu) => (
+                <View key={menu.id} style={styles.menuRow}>
+                  <Text
+                    style={[
+                      styles.menuName,
+                      menu.is_signature && styles.menuNameSignature,
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {menu.name}
+                  </Text>
+                  <Text style={styles.menuPrice}>
+                    {menu.price !== null && menu.price !== undefined
+                      ? t("place.menu_price_won", {
+                          price: menu.price.toLocaleString(),
+                        })
+                      : ""}
+                  </Text>
+                </View>
+              ))
+            )}
+            <Text style={styles.menuDisclaimer}>
+              {t("place.menu_disclaimer")}
+            </Text>
+          </InfoCard>
+
           {/* Reviews — hidden in MVP. The whole section (header, write-review
               button, empty state, list) lives behind MVP_SHOW_REVIEWS so we
               don't ship a "리뷰 작성" button that routes to nothing. */}
@@ -561,6 +596,35 @@ const styles = StyleSheet.create({
   },
   description: { marginBottom: Spacing.md },
   descriptionText: { ...Typography.body, color: Colors.textSecondary, lineHeight: 24 },
+  menuRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+  },
+  // flex:1 lets a long menu name shrink instead of pushing the price
+  // off-screen; marginRight keeps a gap when the row is short.
+  menuName: {
+    ...Typography.body,
+    color: Colors.text,
+    flex: 1,
+    marginRight: Spacing.md,
+  },
+  menuNameSignature: { fontWeight: "700" },
+  menuPrice: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    textAlign: "right",
+  },
+  menuEmpty: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    paddingVertical: Spacing.sm,
+  },
+  menuDisclaimer: {
+    ...Typography.caption,
+    color: Colors.textLight,
+    marginTop: Spacing.sm,
+  },
   reviewSection: { marginBottom: Spacing.xl },
   reviewHeader: {
     flexDirection: "row",
