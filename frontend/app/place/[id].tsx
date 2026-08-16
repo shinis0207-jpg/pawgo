@@ -113,7 +113,7 @@ export default function PlaceDetailScreen() {
       : t(`categories.${place.category}`);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
       <ScrollView>
         {/* Hero image */}
         <View style={styles.heroContainer}>
