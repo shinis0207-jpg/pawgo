@@ -284,7 +284,9 @@ export default function PlaceDetailScreen() {
                     ]}
                     numberOfLines={2}
                   >
-                    {menu.name}
+                    {menu.is_signature
+                      ? menu.name + t("place.menu_signature_suffix")
+                      : menu.name}
                   </Text>
                   <Text style={styles.menuPrice}>
                     {menu.price !== null && menu.price !== undefined

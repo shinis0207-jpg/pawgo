@@ -160,7 +160,8 @@
     "menu_title": "Menu",
     "no_menu": "No menu information",
     "menu_disclaimer": "Menu items and prices are subject to change",
-    "menu_price_won": "{{price}} KRW"
+    "menu_price_won": "{{price}} KRW",
+    "menu_signature_suffix": " (Signature)"
   },
   "pets": {
     "title": "My Pets",
