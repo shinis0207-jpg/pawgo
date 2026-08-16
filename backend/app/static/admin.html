@@ -180,6 +180,27 @@
     font-size: 12px; color: var(--muted); margin-top: 4px;
   }
   .user-detail { margin-top: 8px; }
+  .menu-new { margin-bottom: 12px; }
+  .menu-new-label {
+    display: block; margin-bottom: 6px;
+    color: var(--muted); font-size: 13px;
+  }
+  .menu-new-fields, .menu-list li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 120px auto auto auto;
+    gap: 8px; align-items: center;
+  }
+  .menu-new-fields { grid-template-columns: minmax(0, 1fr) 120px auto auto; }
+  .menu-list { list-style: none; padding: 0; margin: 0 0 8px; }
+  .menu-list li {
+    padding: 8px 10px; border: 1px solid var(--border);
+    border-radius: 6px; margin-bottom: 6px; background: #fff;
+  }
+  .menu-sig-wrap {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 13px; color: var(--text); white-space: nowrap;
+  }
+  .menu-sig-wrap input[type="checkbox"] { width: auto; }
   @media (max-width: 1000px) {
     .workspace { grid-template-columns: 1fr; }
   }
@@ -387,6 +408,29 @@
       <button class="secondary" id="reloadBtn">현재값 다시 불러오기</button>
     </div>
     <div id="editMsg"></div>
+
+    <hr />
+
+    <div class="subsection">
+      <h3>메뉴</h3>
+
+      <div class="menu-new">
+        <label class="menu-new-label" for="menuNewName">새 메뉴</label>
+        <div class="menu-new-fields">
+          <input id="menuNewName" type="text" maxlength="100" placeholder="메뉴 이름" />
+          <input id="menuNewPrice" type="number" min="0" step="1" placeholder="가격 (선택)" />
+          <label class="menu-sig-wrap">
+            <input id="menuNewSig" type="checkbox" /> 대표
+          </label>
+          <button id="menuAddBtn" type="button">추가</button>
+        </div>
+      </div>
+
+      <ul id="menuList" class="menu-list"></ul>
+      <p id="menuEmpty" class="note hidden">등록된 메뉴가 없습니다.</p>
+      <p class="note">메뉴와 가격은 변경될 수 있습니다.</p>
+      <div id="menuMsg"></div>
+    </div>
   </section>
   </div>
 
@@ -443,6 +487,12 @@ let currentPage = 1;
 let pageSize = 30;
 let lastQuery = "";
 let lastTotal = 0;
+// Menus state. Kept flat (not a Map) because we re-render the whole list
+// on add/delete and index by id via findIndex — the list is small (single
+// place, expected < 50 rows).
+let loadedMenus = [];          // PlaceMenuResponse[] as returned by GET
+let loadedMenuBaselines = new Map(); // menu_id -> { name, price, is_signature } baseline for PATCH diff
+let addingMenu = false;        // POST /admin/places/{id}/menus in flight — blocks button + Enter re-submit
 
 // --- DOM helpers ---
 const $ = (id) => document.getElementById(id);
@@ -617,6 +667,7 @@ async function selectPlace(p) {
   currentPlace = p;
   loadBasic(p);
   loadPolicy(p);
+  loadMenus(p.id);
 }
 
 // Baseline for basic-info diff on save. Distinct from loadedPolicy so
@@ -845,6 +896,267 @@ async function toggleVisibility() {
   );
 }
 
+// --- Menus (row-level immediate save) ---
+// Stale-response defence for all four operations: any handler that would
+// touch the menu list/DOM after an async round-trip captures the current
+// place id at request time and bails out if the admin has since selected
+// a different place. Without this, a slow GET/POST/PATCH/DELETE landing
+// after selectPlace() would clobber the newly-loaded place's menu UI.
+
+function parsePriceInput(str) {
+  const s = String(str ?? "").trim();
+  if (s === "") return { ok: true, value: null };
+  const n = Number(s);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
+    return { ok: false, msg: "가격은 0 이상의 정수만 입력할 수 있습니다." };
+  }
+  return { ok: true, value: n };
+}
+
+// Build a row via DOM API (never innerHTML) so menu.name / menu.price go
+// through element properties — XSS-safe without needing escapeHtml.
+function buildMenuRow(menu) {
+  const li = document.createElement("li");
+  li.dataset.menuId = String(menu.id);
+
+  const nameEl = document.createElement("input");
+  nameEl.type = "text";
+  nameEl.maxLength = 100;
+  nameEl.className = "menu-name";
+  nameEl.value = menu.name;
+
+  const priceEl = document.createElement("input");
+  priceEl.type = "number";
+  priceEl.min = "0";
+  priceEl.step = "1";
+  priceEl.className = "menu-price";
+  priceEl.placeholder = "가격 (선택)";
+  priceEl.value = (menu.price === null || menu.price === undefined) ? "" : String(menu.price);
+
+  const sigWrap = document.createElement("label");
+  sigWrap.className = "menu-sig-wrap";
+  const sigEl = document.createElement("input");
+  sigEl.type = "checkbox";
+  sigEl.className = "menu-sig";
+  sigEl.checked = !!menu.is_signature;
+  sigWrap.appendChild(sigEl);
+  sigWrap.appendChild(document.createTextNode(" 대표"));
+
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.className = "menu-save";
+  saveBtn.textContent = "저장";
+  saveBtn.addEventListener("click", () => saveMenuRow(menu.id));
+
+  const delBtn = document.createElement("button");
+  delBtn.type = "button";
+  delBtn.className = "menu-delete secondary";
+  delBtn.textContent = "삭제";
+  delBtn.addEventListener("click", () => deleteMenuRow(menu.id));
+
+  li.appendChild(nameEl);
+  li.appendChild(priceEl);
+  li.appendChild(sigWrap);
+  li.appendChild(saveBtn);
+  li.appendChild(delBtn);
+  return li;
+}
+
+function renderMenus() {
+  const ul = $("menuList");
+  ul.innerHTML = "";
+  if (loadedMenus.length === 0) {
+    show($("menuEmpty"));
+    return;
+  }
+  hide($("menuEmpty"));
+  loadedMenus.forEach((m) => ul.appendChild(buildMenuRow(m)));
+}
+
+async function loadMenus(placeId) {
+  // Reset UI immediately so a slow GET can't leak the previous place's
+  // rows into the newly-selected place's edit card.
+  loadedMenus = [];
+  loadedMenuBaselines.clear();
+  $("menuList").innerHTML = "";
+  hide($("menuEmpty"));
+  setMsg($("menuMsg"), "메뉴 불러오는 중…", "ok");
+
+  const r = await api("/admin/places/" + placeId + "/menus");
+  if (currentPlace?.id !== placeId) return; // stale — user already moved on
+
+  if (!r.ok) {
+    setMsg($("menuMsg"),
+      "메뉴 조회 실패 (" + r.status + "): " + JSON.stringify(r.body?.detail ?? r.body ?? ""),
+      "err");
+    return;
+  }
+  loadedMenus = Array.isArray(r.body) ? r.body : [];
+  loadedMenus.forEach((m) => {
+    loadedMenuBaselines.set(m.id, {
+      name: m.name, price: m.price, is_signature: m.is_signature,
+    });
+  });
+  renderMenus();
+  setMsg($("menuMsg"), "", "");
+}
+
+async function addMenu() {
+  if (!currentPlace || addingMenu) return;
+  const nameInput = $("menuNewName");
+  const priceInput = $("menuNewPrice");
+  const sigInput = $("menuNewSig");
+  const addBtn = $("menuAddBtn");
+
+  const nameNow = nameInput.value;
+  if (nameNow.trim() === "") {
+    setMsg($("menuMsg"), "메뉴 이름을 입력하세요.", "err");
+    return;
+  }
+  const priceParsed = parsePriceInput(priceInput.value);
+  if (!priceParsed.ok) {
+    setMsg($("menuMsg"), priceParsed.msg, "err");
+    return;
+  }
+  const body = { name: nameNow, is_signature: sigInput.checked };
+  if (priceParsed.value !== null) body.price = priceParsed.value;
+
+  const capturedPlaceId = currentPlace.id;
+  addingMenu = true;
+  addBtn.disabled = true;
+  setMsg($("menuMsg"), "추가 중…", "ok");
+
+  const r = await api("/admin/places/" + capturedPlaceId + "/menus", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+  addingMenu = false;
+  addBtn.disabled = false;
+
+  if (currentPlace?.id !== capturedPlaceId) return; // stale
+
+  if (!r.ok) {
+    setMsg($("menuMsg"),
+      "추가 실패 (" + r.status + "): " + JSON.stringify(r.body?.detail ?? r.body ?? ""),
+      "err");
+    return;
+  }
+  const created = r.body;
+  loadedMenus.push(created);
+  // Match server ordering: sort_order ASC, then id ASC.
+  loadedMenus.sort((a, b) =>
+    (a.sort_order - b.sort_order) || (a.id - b.id));
+  loadedMenuBaselines.set(created.id, {
+    name: created.name, price: created.price, is_signature: created.is_signature,
+  });
+  renderMenus();
+  nameInput.value = "";
+  priceInput.value = "";
+  sigInput.checked = false;
+  setMsg($("menuMsg"), "추가됨.", "ok");
+}
+
+async function saveMenuRow(menuId) {
+  if (!currentPlace) return;
+  const capturedPlaceId = currentPlace.id;
+  const li = $("menuList").querySelector('li[data-menu-id="' + menuId + '"]');
+  if (!li) return;
+  const baseline = loadedMenuBaselines.get(menuId);
+  if (!baseline) return;
+
+  const nameInput = li.querySelector(".menu-name");
+  const priceInput = li.querySelector(".menu-price");
+  const sigInput = li.querySelector(".menu-sig");
+  const saveBtn = li.querySelector(".menu-save");
+  if (saveBtn.disabled) return; // guard against click while a prior save is in flight
+
+  const nameNow = nameInput.value;
+  if (nameNow.trim() === "") {
+    setMsg($("menuMsg"), "이름은 비울 수 없습니다.", "err");
+    return;
+  }
+  const priceParsed = parsePriceInput(priceInput.value);
+  if (!priceParsed.ok) {
+    setMsg($("menuMsg"), priceParsed.msg, "err");
+    return;
+  }
+  const sigNow = sigInput.checked;
+
+  const patch = {};
+  if (nameNow !== baseline.name) patch.name = nameNow;
+  if (priceParsed.value !== baseline.price) patch.price = priceParsed.value;
+  if (sigNow !== baseline.is_signature) patch.is_signature = sigNow;
+
+  if (Object.keys(patch).length === 0) {
+    setMsg($("menuMsg"), "변경 사항이 없습니다.", "ok");
+    return;
+  }
+
+  saveBtn.disabled = true;
+  setMsg($("menuMsg"), "저장 중…", "ok");
+  const r = await api("/admin/menus/" + menuId, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+  saveBtn.disabled = false;
+
+  if (currentPlace?.id !== capturedPlaceId) return; // stale
+
+  if (!r.ok) {
+    setMsg($("menuMsg"),
+      "저장 실패 (" + r.status + "): " + JSON.stringify(r.body?.detail ?? r.body ?? ""),
+      "err");
+    return;
+  }
+  const updated = r.body;
+  loadedMenuBaselines.set(menuId, {
+    name: updated.name, price: updated.price, is_signature: updated.is_signature,
+  });
+  const idx = loadedMenus.findIndex((x) => x.id === menuId);
+  if (idx !== -1) loadedMenus[idx] = updated;
+  // Reflect the server-normalised values (e.g. trimmed name) back into
+  // that row only — don't re-render the whole list or other rows would
+  // lose unsaved edits.
+  nameInput.value = updated.name;
+  priceInput.value = (updated.price === null || updated.price === undefined)
+    ? "" : String(updated.price);
+  sigInput.checked = !!updated.is_signature;
+  setMsg($("menuMsg"), "저장됨.", "ok");
+}
+
+async function deleteMenuRow(menuId) {
+  if (!currentPlace) return;
+  const capturedPlaceId = currentPlace.id;
+  const menu = loadedMenus.find((x) => x.id === menuId);
+  if (!menu) return;
+  if (!confirm(menu.name + "를 삭제하시겠습니까?")) return;
+
+  const li = $("menuList").querySelector('li[data-menu-id="' + menuId + '"]');
+  const delBtn = li ? li.querySelector(".menu-delete") : null;
+  if (delBtn) {
+    if (delBtn.disabled) return;
+    delBtn.disabled = true;
+  }
+  setMsg($("menuMsg"), "삭제 중…", "ok");
+
+  const r = await api("/admin/menus/" + menuId, { method: "DELETE" });
+  if (delBtn) delBtn.disabled = false;
+
+  if (currentPlace?.id !== capturedPlaceId) return; // stale
+
+  if (!r.ok) {
+    setMsg($("menuMsg"),
+      "삭제 실패 (" + r.status + "): " + JSON.stringify(r.body?.detail ?? r.body ?? ""),
+      "err");
+    return;
+  }
+  loadedMenus = loadedMenus.filter((x) => x.id !== menuId);
+  loadedMenuBaselines.delete(menuId);
+  renderMenus();
+  setMsg($("menuMsg"), "삭제됨.", "ok");
+}
+
 // --- Users (read-only member inspection) ---
 // Independent state and helpers so places/users pagination don't collide.
 // One-time auto-load on first "회원" tab entry (see switchTab); subsequent
@@ -1045,6 +1357,14 @@ $("basicSaveBtn").addEventListener("click", saveBasic);
 $("visibilityToggleBtn").addEventListener("click", toggleVisibility);
 $("saveBtn").addEventListener("click", save);
 $("reloadBtn").addEventListener("click", reloadCurrentPlace);
+$("menuAddBtn").addEventListener("click", addMenu);
+// Enter on either new-menu input mirrors the 추가 button. preventDefault
+// blocks any latent form-submit; addMenu()'s own addingMenu flag stops
+// double-fires from key repeat.
+$("menuNewName").addEventListener("keydown",
+  (e) => { if (e.key === "Enter") { e.preventDefault(); addMenu(); } });
+$("menuNewPrice").addEventListener("keydown",
+  (e) => { if (e.key === "Enter") { e.preventDefault(); addMenu(); } });
 
 renderPageSizeBar();
 renderUsersPageSizeBar();
