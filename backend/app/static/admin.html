@@ -201,6 +201,24 @@
     font-size: 13px; color: var(--text); white-space: nowrap;
   }
   .menu-sig-wrap input[type="checkbox"] { width: auto; }
+  .cat-list { display: flex; flex-direction: column; gap: 12px; }
+  .cat-group-label {
+    font-size: 12px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  .cat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 6px 12px;
+  }
+  .cat-item {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13px; color: var(--text);
+    cursor: pointer; white-space: nowrap;
+  }
+  .cat-item input[type="checkbox"] { width: auto; margin: 0; }
+  .cat-hint { font-size: 11px; color: var(--muted); }
   @media (max-width: 1000px) {
     .workspace { grid-template-columns: 1fr; }
   }
@@ -287,6 +305,17 @@
         <button class="secondary" id="visibilityToggleBtn"></button>
       </div>
       <div id="basicMsg"></div>
+    </div>
+
+    <hr />
+
+    <div class="subsection">
+      <h3>카테고리</h3>
+      <div id="categoryList" class="cat-list"></div>
+      <div class="actions">
+        <button id="categorySaveBtn">카테고리 저장</button>
+      </div>
+      <div id="categoryMsg"></div>
     </div>
 
     <hr />
@@ -493,6 +522,11 @@ let lastTotal = 0;
 let loadedMenus = [];          // PlaceMenuResponse[] as returned by GET
 let loadedMenuBaselines = new Map(); // menu_id -> { name, price, is_signature } baseline for PATCH diff
 let addingMenu = false;        // POST /admin/places/{id}/menus in flight — blocks button + Enter re-submit
+// Category master is loaded once per admin session (23 rows, group ASC +
+// sort_order ASC). Kept in module scope so switching places doesn't refetch.
+let allCategories = null;              // null = not yet fetched; [] = fetched-but-empty; otherwise CategoryResponse[]
+let loadedPlaceCategories = new Set(); // codes currently checked for currentPlace
+let savingCategories = false;          // PUT /admin/places/{id}/categories in flight
 
 // --- DOM helpers ---
 const $ = (id) => document.getElementById(id);
@@ -548,6 +582,10 @@ function enterAdmin(user) {
   show($("tabBar"));
   show($("logoutBtn"));
   show($("searchCard"));
+  // Fetch the 23-row category master exactly once per admin session — the
+  // list is stable across place selections. Fired unawaited so the login
+  // handoff doesn't block on it.
+  fetchCategoriesOnce();
 }
 
 function logout() {
@@ -668,6 +706,7 @@ async function selectPlace(p) {
   loadBasic(p);
   loadPolicy(p);
   loadMenus(p.id);
+  loadCategoriesForPlace(p);
 }
 
 // Baseline for basic-info diff on save. Distinct from loadedPolicy so
@@ -1157,6 +1196,181 @@ async function deleteMenuRow(menuId) {
   setMsg($("menuMsg"), "삭제됨.", "ok");
 }
 
+// --- Categories (whole-replace via PUT) ---
+// Master list is loaded once per admin session; per-place checked state
+// comes from currentPlace.categories (already carried by the admin list
+// response — no extra GET). Save uses PUT for whole-replace semantics.
+
+const CAT_GROUP_LABEL = {
+  food: "음식",
+  coffee_dessert: "카페·디저트",
+  drink: "술",
+  space_tag: "공간 특성",
+};
+// Category display names copied verbatim from frontend/i18n/ko.json
+// under "categories.*". Kept as a static map so admin and app labels
+// stay in lockstep — if a new code lands in the DB master, we surface
+// its raw code (fallback below) instead of silently mislabelling.
+const CAT_LABEL = {
+  korean: "한식",
+  japanese: "일식",
+  chinese: "중식",
+  western: "양식",
+  asian: "아시안",
+  bbq_grill: "고기·구이",
+  seafood: "해산물·횟집",
+  bunsik: "분식",
+  burger_pizza_fastfood: "버거·피자",
+  cafe: "카페",
+  bakery: "베이커리",
+  dessert: "디저트",
+  brunch: "브런치",
+  traditional_tea: "전통찻집",
+  bar_hof: "술집·호프",
+  izakaya: "이자카야",
+  wine_bar: "와인바",
+  cocktail_bar: "칵테일·바",
+  pub_brewpub: "펍·브루펍",
+  rooftop_terrace: "루프탑·테라스",
+  large_group: "대형·단체",
+  fine_dining: "파인다이닝",
+  pet_specialized: "반려동물 특화",
+};
+// Codes hidden from the app's default filter UI but still editable by
+// admins — we mark them explicitly so an admin doesn't waste time
+// wondering why a checked tag never appears in-app.
+const CAT_HIDDEN_IN_APP = new Set(["fine_dining"]);
+
+async function fetchCategoriesOnce() {
+  if (allCategories !== null) return;
+  const r = await api("/admin/categories");
+  if (!r.ok) {
+    setMsg($("categoryMsg"),
+      "카테고리 목록 조회 실패 (" + r.status + "): "
+        + JSON.stringify(r.body?.detail ?? r.body ?? ""),
+      "err");
+    return;
+  }
+  allCategories = Array.isArray(r.body) ? r.body : [];
+  // A place may have been selected before the master finished loading;
+  // re-render so its baseline checks show up.
+  if (currentPlace) renderCategoryPanel();
+}
+
+function renderCategoryPanel() {
+  const container = $("categoryList");
+  container.innerHTML = "";
+  if (!allCategories || allCategories.length === 0) {
+    const p = document.createElement("p");
+    p.className = "note";
+    p.textContent = "카테고리 목록을 불러오지 못했습니다.";
+    container.appendChild(p);
+    return;
+  }
+  // Server already returns group ASC + sort_order ASC, so a single pass
+  // preserving insertion order produces the right section order.
+  const groups = new Map();
+  for (const c of allCategories) {
+    if (!groups.has(c.group)) groups.set(c.group, []);
+    groups.get(c.group).push(c);
+  }
+  for (const [groupCode, cats] of groups) {
+    const wrap = document.createElement("div");
+    wrap.className = "cat-group";
+    const gLabel = document.createElement("div");
+    gLabel.className = "cat-group-label";
+    gLabel.textContent = CAT_GROUP_LABEL[groupCode] || groupCode;
+    wrap.appendChild(gLabel);
+
+    const grid = document.createElement("div");
+    grid.className = "cat-grid";
+    for (const c of cats) {
+      const label = document.createElement("label");
+      label.className = "cat-item";
+
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.className = "cat-check";
+      cb.value = c.code;
+      cb.checked = loadedPlaceCategories.has(c.code);
+
+      const txt = document.createElement("span");
+      txt.textContent = CAT_LABEL[c.code] || c.code;
+
+      label.appendChild(cb);
+      label.appendChild(txt);
+      if (CAT_HIDDEN_IN_APP.has(c.code)) {
+        const hint = document.createElement("span");
+        hint.className = "cat-hint";
+        hint.textContent = "앱에서는 숨김";
+        label.appendChild(hint);
+      }
+      grid.appendChild(label);
+    }
+    wrap.appendChild(grid);
+    container.appendChild(wrap);
+  }
+}
+
+function loadCategoriesForPlace(p) {
+  // Reset baseline for THIS place first so a slow master fetch or a
+  // rapid place switch never leaks the previous place's checks.
+  loadedPlaceCategories = new Set(p.categories || []);
+  setMsg($("categoryMsg"), "", "");
+  renderCategoryPanel();
+}
+
+async function saveCategories() {
+  if (!currentPlace || savingCategories) return;
+  const capturedPlaceId = currentPlace.id;
+  const codes = Array.from(
+    $("categoryList").querySelectorAll(".cat-check:checked")
+  ).map((cb) => cb.value);
+
+  savingCategories = true;
+  $("categorySaveBtn").disabled = true;
+  setMsg($("categoryMsg"), "저장 중…", "ok");
+
+  const r = await api("/admin/places/" + capturedPlaceId + "/categories", {
+    method: "PUT",
+    body: JSON.stringify({ codes }),
+  });
+
+  savingCategories = false;
+  $("categorySaveBtn").disabled = false;
+
+  if (currentPlace?.id !== capturedPlaceId) return; // stale — user moved on
+
+  if (!r.ok) {
+    let msg = "저장 실패 (" + r.status + "): ";
+    const detail = r.body?.detail;
+    if (
+      r.status === 422 &&
+      detail && typeof detail === "object" &&
+      Array.isArray(detail.unknown_codes)
+    ) {
+      msg += "잘못된 카테고리 코드: " + detail.unknown_codes.join(", ");
+    } else {
+      msg += JSON.stringify(detail ?? r.body ?? "");
+    }
+    setMsg($("categoryMsg"), msg, "err");
+    return;
+  }
+
+  // Response is list[CategoryResponse]. Rebuild baseline from the server's
+  // authoritative view so a subsequent save diffs against reality, not the
+  // click state.
+  const returned = Array.isArray(r.body) ? r.body : [];
+  loadedPlaceCategories = new Set(returned.map((c) => c.code));
+  // Keep currentPlace.categories in sync so re-selecting via search stays
+  // consistent with what we just wrote.
+  if (currentPlace) {
+    currentPlace.categories = Array.from(loadedPlaceCategories);
+  }
+  renderCategoryPanel();
+  setMsg($("categoryMsg"), "저장됨.", "ok");
+}
+
 // --- Users (read-only member inspection) ---
 // Independent state and helpers so places/users pagination don't collide.
 // One-time auto-load on first "회원" tab entry (see switchTab); subsequent
@@ -1365,6 +1579,7 @@ $("menuNewName").addEventListener("keydown",
   (e) => { if (e.key === "Enter") { e.preventDefault(); addMenu(); } });
 $("menuNewPrice").addEventListener("keydown",
   (e) => { if (e.key === "Enter") { e.preventDefault(); addMenu(); } });
+$("categorySaveBtn").addEventListener("click", saveCategories);
 
 renderPageSizeBar();
 renderUsersPageSizeBar();
