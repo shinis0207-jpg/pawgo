@@ -274,3 +274,25 @@ class VetHospitalResponse(BaseModel):
     place: PlaceResponse
 
     model_config = {"from_attributes": True}
+
+
+class CategoryResponse(BaseModel):
+    id: int
+    code: str
+    group: str
+    sort_order: int
+
+    model_config = {"from_attributes": True}
+
+
+class PlaceCategoriesReplaceRequest(BaseModel):
+    """PUT /admin/places/{id}/categories body — whole-replace semantics.
+
+    Empty list is a legal state: the default map query gates on the legacy
+    scalar `Place.category`, not on the `place_categories` tag rows, so a
+    place with zero tags still appears on the map. See
+    services/places.get_places_nearby for the gate.
+    """
+    codes: list[str] = Field(default_factory=list)
+
+    model_config = {"extra": "forbid"}
