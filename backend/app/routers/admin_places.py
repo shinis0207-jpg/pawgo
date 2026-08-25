@@ -83,8 +83,13 @@ async def admin_list_places(
         select(func.count()).select_from(query.subquery())
     )).scalar_one()
 
+    # Sort by primary key, not name. The prod DB's en_US.utf8 collation
+    # multi-weights Hangul syllables so blocks of different syllable
+    # counts split apart and the 95 rows starting with "(주)" / digits /
+    # Latin letters land in unpredictable positions. Deterministic id
+    # order is what the admin UI advertises and what pagination needs.
     rows = (await db.execute(
-        query.order_by(Place.name)
+        query.order_by(Place.id)
         .offset((page - 1) * size)
         .limit(size)
     )).scalars().all()
