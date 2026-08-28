@@ -177,8 +177,6 @@
     "notes": "특이사항",
     "dog": "강아지",
     "cat": "고양이",
-    "bird": "조류",
-    "rabbit": "토끼",
     "other": "기타",
     "no_pets": "등록된 반려동물이 없습니다",
     "login_required_subtitle": "반려동물 관리를 위해 로그인하세요",

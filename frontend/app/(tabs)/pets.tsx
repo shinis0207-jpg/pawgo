@@ -22,7 +22,7 @@ import { PetCard } from "@/components/PetCard";
 import { Colors, Spacing, Radius, Typography } from "@/constants/theme";
 import { Pet } from "@/types";
 
-const PET_TYPES = ["dog", "cat", "bird", "rabbit", "other"];
+const PET_TYPES = ["dog", "cat", "other"];
 
 export default function PetsScreen() {
   const { t } = useTranslation();

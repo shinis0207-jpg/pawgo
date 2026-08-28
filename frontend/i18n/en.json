@@ -177,8 +177,6 @@
     "notes": "Notes",
     "dog": "Dog",
     "cat": "Cat",
-    "bird": "Bird",
-    "rabbit": "Rabbit",
     "other": "Other",
     "no_pets": "No pets registered yet",
     "login_required_subtitle": "Sign in to manage your pets",

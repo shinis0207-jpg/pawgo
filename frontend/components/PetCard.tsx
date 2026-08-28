@@ -22,8 +22,6 @@ interface Props {
 const PET_ICONS: Record<string, string> = {
   dog: "🐶",
   cat: "🐱",
-  bird: "🐦",
-  rabbit: "🐰",
   other: "🐾",
 };
 
