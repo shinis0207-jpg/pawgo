@@ -21,6 +21,7 @@ import { FilterSheet } from "@/components/FilterSheet";
 import { useLocation } from "@/hooks/useLocation";
 import { PlaceFilter } from "@/types";
 import { Colors, Spacing, Radius, Typography } from "@/constants/theme";
+import { useSearchHistoryStore } from "@/store/searchHistoryStore";
 
 const PAGE_SIZE = 20;
 
@@ -41,6 +42,20 @@ export default function SearchScreen() {
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<PlaceFilter>({ radius_km: 10 });
   const [showFilter, setShowFilter] = useState(false);
+
+  // Search history is stored locally via SecureStore. Only Enter-submits
+  // land in the store — typing-through-debounce doesn't record, so users
+  // aren't nagged with every keystroke they explored.
+  const history = useSearchHistoryStore((s) => s.history);
+  const loadHistory = useSearchHistoryStore((s) => s.load);
+  const addHistory = useSearchHistoryStore((s) => s.add);
+  const touchHistory = useSearchHistoryStore((s) => s.touch);
+  const removeHistory = useSearchHistoryStore((s) => s.remove);
+  const clearHistory = useSearchHistoryStore((s) => s.clear);
+
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
 
   const debouncedQuery = useDebounced(query.trim(), 300);
   // Empty input bypasses the debounce — clearing the field returns to the
@@ -138,27 +153,77 @@ export default function SearchScreen() {
           renderItem={({ item }) => (
             <PlaceCard
               place={item}
-              onPress={() => router.push(`/place/${item.id}`)}
+              onPress={() => {
+                // Record BEFORE navigating so a slow SecureStore write
+                // doesn't race with the screen transition. Fire-and-
+                // forget — the store swallows write failures itself.
+                addHistory(item);
+                router.push(`/place/${item.id}`);
+              }}
             />
           )}
           ListEmptyComponent={
-            <View style={styles.center}>
-              <Ionicons name="search-outline" size={48} color={Colors.textLight} />
-              {debouncedQuery ? (
-                <>
-                  <Text style={styles.emptyTitle}>
-                    {t("search.empty_match_title")}
+            debouncedQuery ? (
+              <View style={styles.center}>
+                <Ionicons name="search-outline" size={48} color={Colors.textLight} />
+                <Text style={styles.emptyTitle}>
+                  {t("search.empty_match_title")}
+                </Text>
+                <Text style={styles.emptyHint}>
+                  {t("search.empty_match_hint")}
+                </Text>
+              </View>
+            ) : history.length > 0 ? (
+              <View style={styles.historyContainer}>
+                <View style={styles.historyHeader}>
+                  <Text style={styles.historyTitle}>
+                    {t("search.recent_searches")}
                   </Text>
-                  <Text style={styles.emptyHint}>
-                    {t("search.empty_match_hint")}
-                  </Text>
-                </>
-              ) : (
+                  <TouchableOpacity onPress={clearHistory}>
+                    <Text style={styles.historyClear}>
+                      {t("search.clear_all")}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                {history.map((h) => (
+                  <View key={h.id} style={styles.historyItem}>
+                    <TouchableOpacity
+                      style={styles.historyItemLabel}
+                      onPress={() => {
+                        // Fire-and-forget: bubble the tapped row to the
+                        // top of the history (no re-fetch, no fabrication)
+                        // then navigate. touch() is a no-op if the row
+                        // isn't found or already at index 0.
+                        touchHistory(h.id);
+                        router.push(`/place/${h.id}`);
+                      }}
+                    >
+                      <Text style={styles.historyItemText}>{h.name}</Text>
+                      {h.address !== "" && (
+                        <Text style={styles.historyItemAddress}>{h.address}</Text>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.historyRemove}
+                      onPress={() => removeHistory(h.id)}
+                    >
+                      <Ionicons
+                        name="close"
+                        size={18}
+                        color={Colors.textSecondary}
+                      />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.center}>
+                <Ionicons name="search-outline" size={48} color={Colors.textLight} />
                 <Text style={styles.emptyTitle}>
                   {t("search.empty_no_query")}
                 </Text>
-              )}
-            </View>
+              </View>
+            )
           }
           onEndReached={() => {
             if (hasNextPage && !isFetchingNextPage) fetchNextPage();
@@ -281,5 +346,47 @@ const styles = StyleSheet.create({
   },
   footerLoader: {
     paddingVertical: Spacing.lg,
+  },
+  historyContainer: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+  },
+  historyHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingBottom: Spacing.sm,
+  },
+  historyTitle: {
+    ...Typography.bodySmall,
+    color: Colors.textSecondary,
+    fontWeight: "600",
+  },
+  historyClear: {
+    ...Typography.bodySmall,
+    color: Colors.textSecondary,
+  },
+  historyItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  historyItemLabel: {
+    flex: 1,
+    paddingVertical: Spacing.xs,
+  },
+  historyItemText: {
+    ...Typography.body,
+    color: Colors.text,
+  },
+  historyItemAddress: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  historyRemove: {
+    padding: Spacing.sm,
   },
 });

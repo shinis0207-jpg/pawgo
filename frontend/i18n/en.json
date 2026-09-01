@@ -81,7 +81,9 @@
     "hint": "Search by place name or address. Pet-friendliness is shown when verified.",
     "empty_match_title": "No results doesn't necessarily mean pets aren't allowed.",
     "empty_match_hint": "You may still be welcome at outdoor seating, so please ask the venue directly.",
-    "empty_no_query": "Search for the place you're planning to visit!\nFind out whether it's an MFDS-certified pet-friendly venue."
+    "empty_no_query": "Search for the place you're planning to visit!\nFind out whether it's an MFDS-certified pet-friendly venue.",
+    "recent_searches": "Recently viewed",
+    "clear_all": "Clear all"
   },
   "categories": {
     "accommodation": "Hotels",
