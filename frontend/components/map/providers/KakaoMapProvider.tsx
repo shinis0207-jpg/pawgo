@@ -2,18 +2,7 @@ import React, { useEffect, useRef, useCallback, forwardRef } from "react";
 import { StyleSheet, View, Text } from "react-native";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
 import { MapViewProps, MapMarker } from "../types";
-
-const CATEGORY_COLORS: Record<MapMarker["category"], string> = {
-  cafe: "#8B5CF6",
-  hotel: "#6366F1",
-  restaurant: "#F59E0B",
-  park: "#10B981",
-  hospital: "#EF4444",
-};
-
-// Selected-pin override. Tailwind blue-500 — chosen to stand out against the
-// warm category colors above so the user can find the active pin at a glance.
-const SELECTED_PIN_COLOR = "#3B82F6";
+import { PAWGO_MARKER_DATA_URI } from "../pawgoMarkerAsset";
 
 function buildMapHtml(
   apiKey: string,
@@ -38,19 +27,39 @@ function buildMapHtml(
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body, #map { width: 100%; height: 100vh; overflow: hidden; }
+    /* PawGo logo shared by every pin. Declared once at :root as a CSS
+       variable so the ~96 KB data URI lives in the HTML exactly once,
+       regardless of how many markers are rendered. */
+    :root { --pawgo-marker: url("${PAWGO_MARKER_DATA_URI}"); }
     .custom-pin {
-      width: 30px; height: 30px;
+      position: relative;
+      width: 26px; height: 26px;
       border-radius: 50% 50% 50% 0;
       transform: rotate(-45deg);
       border: 2px solid white;
+      background: white;
       box-shadow: 0 2px 6px rgba(0,0,0,0.35);
       cursor: pointer;
+      overflow: hidden;
     }
-    /* Selected-pin treatment. Larger + thicker border so the active pin is
-       obvious among the warm-toned category pins. The background-color
-       inline-style is overridden per-marker from RN with SELECTED_PIN_COLOR. */
+    /* Logo layer counter-rotates the parent's -45° so the paw stays upright
+       inside the teardrop silhouette. Uses var(--pawgo-marker) so the data
+       URI is not duplicated per marker. */
+    .custom-pin::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      transform: rotate(45deg);
+      background-image: var(--pawgo-marker);
+      background-size: contain;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+    /* Selected-pin treatment. Size / border / shadow / z-index shift only —
+       no color change, since every pin now uses the same PawGo logo and the
+       old category-color contrast is gone. */
     .custom-pin.selected {
-      width: 38px; height: 38px;
+      width: 33px; height: 33px;
       border-width: 3px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.45);
       z-index: 10;
@@ -218,9 +227,7 @@ function buildMapHtml(
       markersData.forEach(function(data) {
         var position = new kakao.maps.LatLng(data.latitude, data.longitude);
         var cls = data.highlighted ? 'custom-pin selected' : 'custom-pin';
-        var bg = data.highlighted ? '${SELECTED_PIN_COLOR}' : data.color;
-        var content = '<div class="' + cls + '" data-marker-id="' + data.id
-          + '" style="background:' + bg + ';"></div>';
+        var content = '<div class="' + cls + '" data-marker-id="' + data.id + '"></div>';
 
         var overlay = new kakao.maps.CustomOverlay({
           position: position,
@@ -279,13 +286,12 @@ const KakaoMapProvider = forwardRef<WebView, MapViewProps>(function KakaoMapProv
 
   const injectMarkers = useCallback(
     (markerList: MapMarker[]) => {
-      const markersWithColor = markerList.map((m) => ({
+      const payload = markerList.map((m) => ({
         ...m,
-        color: CATEGORY_COLORS[m.category] ?? "#FF6B35",
         highlighted: m.highlighted ?? false,
       }));
       webViewRef.current?.injectJavaScript(
-        `updateMarkers(${JSON.stringify(markersWithColor)}); true;`
+        `updateMarkers(${JSON.stringify(payload)}); true;`
       );
     },
     []

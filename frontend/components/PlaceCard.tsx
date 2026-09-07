@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Place } from "@/types";
 import { Colors, Spacing, Radius, Typography, categoryColors } from "@/constants/theme";
-import { CategoryPlaceholder } from "@/components/CategoryPlaceholder";
 import { isHiddenCategory } from "@/constants/categories";
 import { MVP_SHOW_REVIEWS } from "@/constants/mvp";
 
@@ -43,26 +42,26 @@ export function PlaceCard({ place, onPress }: Props) {
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
-      <View style={styles.imageContainer}>
-        {place.thumbnail_url ? (
+      {place.thumbnail_url && (
+        <View style={styles.imageContainer}>
           <Image source={{ uri: place.thumbnail_url }} style={styles.image} />
-        ) : (
-          <CategoryPlaceholder category={place.category} size="small" />
-        )}
-        <View style={[styles.categoryBadge, { backgroundColor: categoryColor }]}>
-          <Text style={styles.categoryText} numberOfLines={1}>
-            {badgeLabel}
-          </Text>
         </View>
-        {place.is_verified && (
-          <View style={styles.verifiedBadge}>
-            <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
-          </View>
-        )}
-      </View>
+      )}
 
       <View style={styles.content}>
-        <Text style={styles.name} numberOfLines={1}>{place.name}</Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.name} numberOfLines={1}>{place.name}</Text>
+          <View style={[styles.categoryBadge, { backgroundColor: categoryColor }]}>
+            <Text style={styles.categoryText} numberOfLines={1}>
+              {badgeLabel}
+            </Text>
+          </View>
+          {place.is_verified && (
+            <View style={styles.verifiedBadge}>
+              <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
+            </View>
+          )}
+        </View>
         <Text style={styles.address} numberOfLines={1}>{place.address}</Text>
 
         {/* Rating hidden behind MVP_SHOW_REVIEWS (same gate as place/[id].tsx)
@@ -157,12 +156,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   categoryBadge: {
-    position: "absolute",
-    top: Spacing.sm,
-    left: Spacing.sm,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 3,
     borderRadius: Radius.full,
+    flexShrink: 1,
+    maxWidth: "55%",
   },
   categoryText: {
     ...Typography.caption,
@@ -170,9 +168,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   verifiedBadge: {
-    position: "absolute",
-    top: Spacing.sm,
-    right: Spacing.sm,
     backgroundColor: Colors.surface,
     borderRadius: Radius.full,
     padding: 2,
@@ -180,10 +175,16 @@ const styles = StyleSheet.create({
   content: {
     padding: Spacing.md,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
   name: {
     ...Typography.h3,
     color: Colors.text,
-    marginBottom: Spacing.xs,
+    flex: 1,
   },
   address: {
     ...Typography.bodySmall,
