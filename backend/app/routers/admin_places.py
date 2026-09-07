@@ -105,18 +105,19 @@ async def admin_update_place(
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Admin edit for name / phone / visibility_status.
+    """Admin edit for name / phone / visibility_status / category.
 
     - 404 when the places row is missing.
     - 422 (auto, from pydantic model_config extra='forbid' + validators)
-      when the body carries any field outside the whitelist or a blank/
-      null name / null visibility_status.
+      when the body carries any field outside the whitelist, a blank/
+      null name, null visibility_status, null category, or a category
+      value outside {restaurant, cafe}.
 
     Does NOT filter by visibility_status on load — a HIDDEN place must
     still be editable so the admin can restore it. No policy-side
     effects: this endpoint never calls update_pet_policy_with_logging or
     apply_trust_evaluation. Trust engine doesn't look at name / phone /
-    visibility_status, so verification bands are unaffected.
+    visibility_status / category, so verification bands are unaffected.
     """
     place = (await db.execute(
         select(Place).where(Place.id == place_id)
@@ -134,6 +135,17 @@ async def admin_update_place(
     # tombstone the three place-editing routes used to share was a leftover
     # from before that helper existed.
     await cache_delete_pattern(f"place:{place_id}:*")
+
+    # Category (scalar) edits also stale the /places/nearby cache: the
+    # place moves between the restaurant/cafe filter buckets AND the
+    # scalar value is embedded in the cached list payload
+    # (place_to_response). The nearby cache key doesn't encode which
+    # places are inside a given entry, so we can't invalidate more
+    # precisely than the whole family — cache_delete_pattern accepts one
+    # glob at a time. Deliberately conditional on `category` presence so
+    # name/phone/visibility-only edits keep their pre-existing behavior.
+    if "category" in changes:
+        await cache_delete_pattern("places:nearby:*")
 
     return place_to_response(place, "ko")
 

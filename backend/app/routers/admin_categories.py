@@ -1,10 +1,12 @@
 """Admin CRUD for the Place ↔ Category multi-tag association.
 
-Split from admin_places.py on purpose — its PATCH endpoint's
-PlaceAdminPatchRequest deliberately excludes category edits (see that
-schema's docstring: "an admin can't accidentally slip a category …
-edit through this endpoint"). This router owns category writes so that
-whitelist stays honest.
+Split from admin_places.py on purpose: this router owns writes to the
+`place_categories` M:N table (the 23-code tag set), while
+admin_places.PlaceAdminPatchRequest owns the writable scalar
+`Place.category` (constrained to {restaurant, cafe} — the two values
+that drive the default-map gate + cafe/restaurant filter). Keeping the
+two separated lets each request body's whitelist stay honest about
+which column it edits.
 
 Follows admin_menus.py's shape: own router, own schemas, cache-
 invalidate the affected place after each successful commit.
@@ -127,6 +129,15 @@ async def admin_replace_place_categories(
     # Post-commit cache invalidation — mirror admin_places.py /
     # admin_menus.py. Pattern-delete covers every language variant.
     await cache_delete_pattern(f"place:{place_id}:*")
+
+    # Multi-tag edits also stale the /places/nearby cache in two ways:
+    # (1) filter results routed through `Place.categories.any(...)` for a
+    #     given Category.code change; (2) the cached list payload embeds
+    #     `categories: [c.code, ...]` from place_to_response, so any
+    #     cached entry containing this place carries the old tag list.
+    # The nearby cache key doesn't encode which places are inside a given
+    # entry, so we can't invalidate more precisely than the whole family.
+    await cache_delete_pattern("places:nearby:*")
 
     # Canonical order for the response — matches admin_list_categories
     # so the admin UI can rely on one ordering rule everywhere.

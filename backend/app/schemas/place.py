@@ -131,8 +131,8 @@ class PlaceAdminPatchRequest(BaseModel):
 
     Partial update — only supplied fields are written (the router keys off
     model_dump(exclude_unset=True)). extra="forbid" auto-rejects any field
-    outside this whitelist (name / phone / visibility_status) so an admin
-    can't accidentally slip a category, coordinates, or is_active edit
+    outside this whitelist (name / phone / visibility_status / category)
+    so an admin can't accidentally slip a coordinates or is_active edit
     through this endpoint.
 
     - name: DB is NOT NULL. Explicit null and blank strings are rejected;
@@ -140,10 +140,17 @@ class PlaceAdminPatchRequest(BaseModel):
     - phone: nullable. Explicit null clears the number.
     - visibility_status: enum only. Explicit null is rejected; omit to
       leave the status unchanged.
+    - category: constrained to {restaurant, cafe} — the two values that
+      pass the default-map gate in services/places.py::DEFAULT_MAP_CATEGORIES
+      AND drive the cafe/restaurant filter chips. Explicit null is
+      rejected; omit the field to leave the scalar unchanged. The other
+      legacy enum members (accommodation / park / vet) remain valid on
+      the model itself but are not writable through this admin path.
     """
     name: str | None = Field(default=None, max_length=200)
     phone: str | None = Field(default=None, max_length=20)
     visibility_status: VisibilityStatus | None = None
+    category: PlaceCategory | None = None
 
     model_config = {"extra": "forbid"}
 
@@ -168,6 +175,27 @@ class PlaceAdminPatchRequest(BaseModel):
         if v is None:
             raise ValueError(
                 "visibility_status cannot be null; omit the field to skip"
+            )
+        return v
+
+    @field_validator("category")
+    @classmethod
+    def _reject_null_or_disallowed_category(
+        cls, v: PlaceCategory | None
+    ) -> PlaceCategory | None:
+        # Same null-vs-omit contract as visibility_status: null 422s here
+        # instead of ever reaching the DB (Place.category is NOT NULL).
+        # Additionally narrow to the two map-display values — the enum
+        # itself carries three other legacy members but only these two
+        # participate in the map gate + cafe/restaurant filter, and the
+        # admin UI's dropdown exposes only these.
+        if v is None:
+            raise ValueError(
+                "category cannot be null; omit the field to skip"
+            )
+        if v not in (PlaceCategory.RESTAURANT, PlaceCategory.CAFE):
+            raise ValueError(
+                "category must be one of: restaurant, cafe"
             )
         return v
 

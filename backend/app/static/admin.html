@@ -297,6 +297,11 @@
         <input id="b_phone" type="text" maxlength="20" placeholder="비우면 값 지우기" />
       </div>
       <div class="row">
+        <label for="b_category">지도 표시 분류</label>
+        <select id="b_category"></select>
+      </div>
+      <p class="note">지도 노출과 카페/식당 필터에 사용됩니다.</p>
+      <div class="row">
         <label>현재 상태</label>
         <span id="b_status_label"></span>
       </div>
@@ -637,6 +642,10 @@ async function fetchAndRender() {
   ul.innerHTML = "";
   items.forEach((p) => {
     const li = document.createElement("li");
+    // Marker for targeted DOM patch after saveBasic() — saveBasic
+    // updates just the .cat span of the matching li instead of
+    // refetching the whole list.
+    li.dataset.placeId = String(p.id);
     const badge = p.visibility_status === "hidden"
       ? ' <span class="badge-closed">폐업</span>' : '';
     li.innerHTML =
@@ -719,14 +728,55 @@ function loadBasic(p) {
     name: p.name ?? "",
     phone: p.phone ?? "",
     visibility_status: p.visibility_status,
+    category: p.category,
   };
   $("placeName").textContent = p.name;
   $("placeMeta").textContent = " (#" + p.id + ", " + p.category + ")";
   $("b_name").value = loadedBasic.name;
   $("b_phone").value = loadedBasic.phone;
+  renderCategorySelect(loadedBasic.category);
   renderVisibility(loadedBasic.visibility_status);
   setMsg($("basicMsg"), "", "");
   show($("editCard"));
+}
+
+// Korean labels for the writable + read-only scalar values. Confined to
+// this file because the two ends of the map (writable set, legacy set)
+// differ from the multi-tag CAT_LABEL master.
+const SCALAR_CAT_LABEL = {
+  restaurant: "식당",
+  cafe: "카페",
+  park: "공원",
+  vet: "동물병원",
+  accommodation: "숙박",
+};
+
+// Populate #b_category. Restaurant + cafe are always the writable
+// options. If the current scalar is anything else (legacy park / vet /
+// accommodation rows), prepend it as a selected + disabled option so
+// the browser can't silently default to restaurant — that would make
+// saveBasic()'s diff see a "changed" category on a name-only edit and
+// overwrite a value the admin never touched. Current restaurant/cafe
+// selects normally.
+function renderCategorySelect(current) {
+  const sel = $("b_category");
+  sel.innerHTML = "";
+  const isWritable = current === "restaurant" || current === "cafe";
+  if (!isWritable && current) {
+    const opt = document.createElement("option");
+    opt.value = current;
+    opt.textContent = (SCALAR_CAT_LABEL[current] || current) + " (현재 값)";
+    opt.selected = true;
+    opt.disabled = true;
+    sel.appendChild(opt);
+  }
+  for (const code of ["restaurant", "cafe"]) {
+    const opt = document.createElement("option");
+    opt.value = code;
+    opt.textContent = SCALAR_CAT_LABEL[code];
+    if (current === code) opt.selected = true;
+    sel.appendChild(opt);
+  }
 }
 
 function renderVisibility(status) {
@@ -864,7 +914,7 @@ async function save() {
     "ok");
 }
 
-// --- Basic-info save (name / phone) — diff-only PATCH ---
+// --- Basic-info save (name / phone / category) — diff-only PATCH ---
 async function saveBasic() {
   if (!currentPlace || !loadedBasic) return;
   const nameNow = $("b_name").value.trim();
@@ -882,6 +932,13 @@ async function saveBasic() {
   const phoneAfter = phoneRaw === "" ? null : phoneRaw;
   const phoneBefore = loadedBasic.phone === "" ? null : loadedBasic.phone;
   if (phoneAfter !== phoneBefore) patch.phone = phoneAfter;
+  // Category: only diff when the select actually holds a writable value.
+  // renderCategorySelect() pins non-restaurant/cafe currents as a
+  // selected + disabled option, so #b_category.value equals that legacy
+  // string until the admin manually picks restaurant or cafe — the
+  // diff check keeps the field out of the patch until then.
+  const catNow = $("b_category").value;
+  if (catNow !== loadedBasic.category) patch.category = catNow;
 
   if (Object.keys(patch).length === 0) {
     setMsg($("basicMsg"), "변경된 필드 없음.", "ok");
@@ -902,6 +959,16 @@ async function saveBasic() {
   // Response is the fresh PlaceResponse — use it to reset baseline + form.
   currentPlace = r.body;
   loadBasic(r.body);
+  // Targeted DOM patch on the left-side <li> so the category cell tracks
+  // the new value without a full-list refetch. If the row isn't rendered
+  // (page changed, filtered out, etc.) this is silently a no-op.
+  const li = document.querySelector(
+    '#results li[data-place-id="' + currentPlace.id + '"]'
+  );
+  if (li) {
+    const catCell = li.querySelector(".cat");
+    if (catCell) catCell.textContent = currentPlace.category;
+  }
   setMsg($("basicMsg"),
     "저장됨 (변경 " + Object.keys(patch).length + "개 필드).",
     "ok");
