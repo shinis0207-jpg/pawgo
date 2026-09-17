@@ -452,7 +452,7 @@
         <label class="menu-new-label" for="menuNewName">새 메뉴</label>
         <div class="menu-new-fields">
           <input id="menuNewName" type="text" maxlength="100" placeholder="메뉴 이름" />
-          <input id="menuNewPrice" type="number" min="0" step="1" placeholder="가격 (선택)" />
+          <input id="menuNewPrice" type="text" maxlength="50" placeholder="가격 (선택, 예: 15000 또는 변동)" />
           <label class="menu-sig-wrap">
             <input id="menuNewSig" type="checkbox" /> 대표
           </label>
@@ -1010,13 +1010,14 @@ async function toggleVisibility() {
 // after selectPlace() would clobber the newly-loaded place's menu UI.
 
 function parsePriceInput(str) {
+  // 가격은 자유 텍스트. 서버 스키마의 max_length=50 및 blank→None 정규화와
+  // 일치. blank는 null(가격 없음)로, 그 외는 trim된 문자열 그대로 전송.
   const s = String(str ?? "").trim();
   if (s === "") return { ok: true, value: null };
-  const n = Number(s);
-  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
-    return { ok: false, msg: "가격은 0 이상의 정수만 입력할 수 있습니다." };
+  if (s.length > 50) {
+    return { ok: false, msg: "가격은 50자 이내로 입력할 수 있습니다." };
   }
-  return { ok: true, value: n };
+  return { ok: true, value: s };
 }
 
 // Build a row via DOM API (never innerHTML) so menu.name / menu.price go
@@ -1032,9 +1033,8 @@ function buildMenuRow(menu) {
   nameEl.value = menu.name;
 
   const priceEl = document.createElement("input");
-  priceEl.type = "number";
-  priceEl.min = "0";
-  priceEl.step = "1";
+  priceEl.type = "text";
+  priceEl.maxLength = 50;
   priceEl.className = "menu-price";
   priceEl.placeholder = "가격 (선택)";
   priceEl.value = (menu.price === null || menu.price === undefined) ? "" : String(menu.price);
