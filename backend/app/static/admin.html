@@ -118,6 +118,12 @@
     background: var(--danger); color: #fff; padding: 2px 6px;
     border-radius: 4px; font-size: 11px; margin-left: 8px; font-weight: 600;
   }
+  /* 검색 결과 목록의 주소 줄 — 가게 이름보다 작고 흐리게 */
+  .place-addr {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
   .subsection { margin: 4px 0 8px; }
   .subsection h3 {
     margin: 0 0 12px; font-size: 14px; color: var(--muted);
@@ -545,6 +551,16 @@ function escapeHtml(s) {
     c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 }
 
+// 주소 표시용. 도로명(road_address)과 지번(address)을 둘 다 보여준다.
+// 도로명이 없는 행도 있으므로(카카오 데이터 특성) 있는 것만 골라 이어붙인다.
+// 반환값은 순수 문자열 — HTML로 넣을 때는 호출부에서 escapeHtml을 거칠 것.
+function formatAddress(p) {
+  const road = (p.road_address ?? "").trim();   // 도로명 주소
+  const jibun = (p.address ?? "").trim();       // 지번 주소
+  if (road && jibun) return road + " (지번: " + jibun + ")";
+  return road || jibun || "";                   // 하나만 있으면 그것, 둘 다 없으면 빈 문자열
+}
+
 async function api(path, opts = {}) {
   const headers = Object.assign(
     { "Content-Type": "application/json" },
@@ -648,11 +664,17 @@ async function fetchAndRender() {
     li.dataset.placeId = String(p.id);
     const badge = p.visibility_status === "hidden"
       ? ' <span class="badge-closed">폐업</span>' : '';
+    const addr = formatAddress(p);
+    // 주소가 없는 행도 있으므로 있을 때만 줄을 붙인다.
+    const addrHtml = addr
+      ? '<div class="place-addr">' + escapeHtml(addr) + '</div>'
+      : '';
     li.innerHTML =
       '<span class="id">#' + p.id + '</span>' +
       '<strong>' + escapeHtml(p.name) + '</strong>' +
       '<span class="cat">' + escapeHtml(p.category) + '</span>' +
-      badge;
+      badge +
+      addrHtml;
     li.onclick = () => selectPlace(p);
     ul.appendChild(li);
   });
@@ -731,7 +753,10 @@ function loadBasic(p) {
     category: p.category,
   };
   $("placeName").textContent = p.name;
-  $("placeMeta").textContent = " (#" + p.id + ", " + p.category + ")";
+  // 주소를 제목 옆에 함께 보여줘 선택한 장소가 맞는지 바로 확인할 수 있게 한다.
+  const addr = formatAddress(p);
+  $("placeMeta").textContent =
+    " (#" + p.id + ", " + p.category + ")" + (addr ? " · " + addr : "");
   $("b_name").value = loadedBasic.name;
   $("b_phone").value = loadedBasic.phone;
   renderCategorySelect(loadedBasic.category);
