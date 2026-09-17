@@ -135,7 +135,7 @@ export interface PlacePhoto {
 export interface PlaceMenu {
   id: number;
   name: string;
-  price: number | null;
+  price: string | null;
   is_signature: boolean;
   image_url: string | null;
   sort_order: number;

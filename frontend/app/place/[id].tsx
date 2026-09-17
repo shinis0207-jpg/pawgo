@@ -28,6 +28,25 @@ import { useAuthStore } from "@/store/authStore";
 import { MVP_SHOW_REVIEWS } from "@/constants/mvp";
 import { isHiddenCategory } from "@/constants/categories";
 
+// 메뉴 가격은 자유 텍스트(문자열). 순수 숫자만으로 이뤄진 값은 기존처럼
+// 천단위 콤마 + 언어별 단위를 붙이고("15000" → 15,000원 / 15,000 KRW),
+// "변동"·"10,000원~15,000원" 같은 자유 텍스트는 단위를 붙이지 않고 그대로 보여준다.
+// (자유 텍스트는 관리자가 입력한 문구라 자동 번역 대상이 아니다.)
+const PURE_DIGITS = /^\d+$/;
+
+function formatMenuPrice(
+  price: string | null | undefined,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
+  if (price === null || price === undefined) return "";
+  const s = price.trim();
+  if (s === "") return "";
+  if (PURE_DIGITS.test(s)) {
+    return t("place.menu_price_won", { price: Number(s).toLocaleString() });
+  }
+  return s;
+}
+
 export default function PlaceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, i18n } = useTranslation();
@@ -289,11 +308,7 @@ export default function PlaceDetailScreen() {
                       : menu.name}
                   </Text>
                   <Text style={styles.menuPrice}>
-                    {menu.price !== null && menu.price !== undefined
-                      ? t("place.menu_price_won", {
-                          price: menu.price.toLocaleString(),
-                        })
-                      : ""}
+                    {formatMenuPrice(menu.price, t)}
                   </Text>
                 </View>
               ))
