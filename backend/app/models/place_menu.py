@@ -21,10 +21,13 @@ class PlaceMenu(Base):
         ForeignKey("places.id", ondelete="CASCADE"), index=True
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    # Integer 원 단위. Free-form price text ("시가", "10,000원~") is not
-    # supported by design — coerce to int before write, drop the row if you
-    # can't.
-    price: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # 표시용 자유 텍스트 (예: "15000", "변동", "시가", "10,000원~15,000원").
+    # 순수 숫자 문자열은 앱이 언어별로 포맷(콤마 + 원/KRW)하고, 그 외 문자열은 그대로 표시.
+    # 기존 Integer 데이터의 마이그레이션에서는 "원"·콤마를 덧붙이지 않고 숫자 문자열로만 이관한다
+    # (영어 화면에 "원"이 나오지 않게 하기 위함).
+    # 반면 관리자가 직접 입력하는 자유텍스트에는 단위·콤마가 포함될 수 있다 — 그대로 저장한다.
+    # 정렬·계산·집계 대상 아님.
+    price: Mapped[str | None] = mapped_column(String(50), nullable=True)
     is_signature: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     # Reserved for Phase-later photo upload. Populated column so a later
     # feature flip does not need a migration.

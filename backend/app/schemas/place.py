@@ -16,12 +16,21 @@ class PlacePhotoResponse(BaseModel):
 class PlaceMenuResponse(BaseModel):
     id: int
     name: str
-    price: int | None
+    price: str | None
     is_signature: bool
     image_url: str | None
     sort_order: int
 
     model_config = {"from_attributes": True}
+
+    @field_validator("price", mode="before")
+    @classmethod
+    def _coerce_legacy_int_price(cls, v):
+        # 전환기 호환: DB 마이그레이션 전 정수값, 또는 Redis 캐시에 남은
+        # 정수 price를 문자열로 받아준다. (pydantic v2는 int→str 자동 변환 안 함)
+        if isinstance(v, int) and not isinstance(v, bool):  # bool은 int의 하위형이라 제외
+            return str(v)
+        return v
 
 
 class PlaceMenuCreate(BaseModel):
@@ -29,10 +38,12 @@ class PlaceMenuCreate(BaseModel):
 
     Follows the extra="forbid" convention shared with other admin PATCH
     schemas — any field outside this whitelist 422s before the handler
-    runs. Blank/whitespace-only name is rejected via a validator.
+    runs. Blank/whitespace-only name is rejected via a validator; price
+    is a free-text field, so blank/whitespace-only is normalized to
+    None (=가격 없음) instead of being rejected.
     """
     name: str = Field(..., max_length=100)
-    price: int | None = Field(default=None, ge=0)
+    price: str | None = Field(default=None, max_length=50)
     is_signature: bool = False
     image_url: str | None = Field(default=None, max_length=500)
     sort_order: int = 0
@@ -47,16 +58,31 @@ class PlaceMenuCreate(BaseModel):
             raise ValueError("name must not be blank")
         return s
 
+    @field_validator("price", mode="before")
+    @classmethod
+    def _normalize_price(cls, v):
+        # 가격은 선택 필드: 공백만 있으면 None(가격 없음)으로 처리.
+        # (name은 필수라 blank를 거부하지만 price는 선택 — 혼동 금지)
+        if v is None:
+            return None
+        if isinstance(v, int) and not isinstance(v, bool):
+            v = str(v)  # 구버전 admin.html이 숫자로 보내는 경우 호환
+        if isinstance(v, str):
+            s = v.strip()
+            return s or None
+        return v  # 그 외 타입은 pydantic이 422로 거부
+
 
 class PlaceMenuUpdate(BaseModel):
     """Partial admin edit for PATCH /admin/menus/{menu_id}.
 
     Every field is optional and only supplied keys are written (router
     keys off model_dump(exclude_unset=True)). name accepts a value but
-    not null/blank — omit the key to leave it unchanged.
+    not null/blank — omit the key to leave it unchanged. price is a
+    free-text field: null 또는 공백 전송 시 가격 삭제(None).
     """
     name: str | None = Field(default=None, max_length=100)
-    price: int | None = Field(default=None, ge=0)
+    price: str | None = Field(default=None, max_length=50)
     is_signature: bool | None = None
     image_url: str | None = Field(default=None, max_length=500)
     sort_order: int | None = None
@@ -75,6 +101,20 @@ class PlaceMenuUpdate(BaseModel):
         if not s:
             raise ValueError("name must not be blank")
         return s
+
+    @field_validator("price", mode="before")
+    @classmethod
+    def _normalize_price(cls, v):
+        # 가격은 선택 필드: 공백만 있으면 None(가격 없음)으로 처리.
+        # (name은 필수라 blank를 거부하지만 price는 선택 — 혼동 금지)
+        if v is None:
+            return None
+        if isinstance(v, int) and not isinstance(v, bool):
+            v = str(v)  # 구버전 admin.html이 숫자로 보내는 경우 호환
+        if isinstance(v, str):
+            s = v.strip()
+            return s or None
+        return v  # 그 외 타입은 pydantic이 422로 거부
 
 
 class PetPolicyResponse(BaseModel):
